@@ -13,45 +13,26 @@ uniform float center_x;
 uniform float center_y;
 uniform float zoom;
 uniform vec2 window;
- 
-float get_iterations()
+
+vec2 calculateMagneticField(vec2 pos, vec2 source, vec2 direction, float moment)
 {
-    // Initial z value converted from coordinates
-    vec2 c = vec2((gl_FragCoord.x / window.x - 0.5) * window.x/window.y * zoom * INITIAL_ZOOM + center_x + OFFSET_CENTER_X, // real
-                (gl_FragCoord.y / window.y - 0.5) * zoom * INITIAL_ZOOM + center_y); // imag
+    vec2 A = pos - source;
+    vec2 A_rad = normalize(A);
+    vec2 A_tan = vec2(A_rad.y, -A_rad.x); // Clockwise tangent
+    direction = normalize(direction);
+    float r = length(A);
+    float r_cube = pow(r, 3);
+    float theta = acos(dot(A, direction) / r);
 
-    float c2 = dot(c, c);
-    // skip computation inside M1 - https://iquilezles.org/articles/mset1bulb
-    if( 256.0*c2*c2 - 96.0*c2 + 32.0*c.x - 3.0 < 0.0 ) return 0.0;
-    // skip computation inside M2 - https://iquilezles.org/articles/mset2bulb
-    if( 16.0*(c2+2.0*c.x+1.0) - 1.0 < 0.0 ) return 0.0;
+    // We skip the constants, assume pre-multiplied
+    float B_r = (2 * moment * cos(theta)) / r_cube; // Radial field vector
+    float B_theta = (moment *  sin(theta)) / r_cube; // Tangential field vector
 
-    const float B = 256.0;
- 
-    float n = 0; // Number of iterations
-    vec2 z = vec2(0.0); // Next z value
- 
-    for (int i = 0; i < MAX_ITERATIONS; i++)
-    {
-        z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c; // z = z^2 + c
-        if (dot(z,z) > (B*B)) break;
-        n += 1.0;
-    }
-
-    if (n > MAX_ITERATIONS - 1.0) return 0.0;
-
-    return n - log2(log2(dot(z,z))) + 4.0; // optimized smooth iteration count
-}
-
-vec4 return_color()
-{
-    float n = get_iterations();
-    vec3 col = (n < 0.5) ? vec3(0.0) : 0.5 + 0.5*cos(3.0 + n*0.15 + vec3(0.0, 0.6, 1.0));
-
-    return vec4(col, 1.0);
+    return B_r * A_rad + B_theta * A_tan;
 }
  
 void main()
 {
-    frag_color = return_color();
+    vec2 fieldStr = calculateMagneticField(gl_FragCoord.xy, vec2(0.0f), window.xy / 2.0f, 1.0f);
+    frag_color = vec4(vec3(sin(length(fieldStr))), 1.0f);
 }
