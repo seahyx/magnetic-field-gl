@@ -15,6 +15,8 @@
 
 #include "shader.h"
 
+constexpr auto PI = 3.141529;
+
 int screen_width{ 1080 };
 int screen_height{ 1080 };
 
@@ -28,6 +30,8 @@ float center_y{ 0.0f };
 float move_speed{ 5.0f };
 double zoom{ 1.0 };
 float zoom_speed{ 2.0f };
+glm::dvec2 sel_pos = glm::dvec2(0.0);
+float angle{ 0.0f };
 
 float vertices[] =
 {

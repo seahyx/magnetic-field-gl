@@ -100,10 +100,13 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		our_shader.use_shader();
-		our_shader.set_float("zoom", zoom);
-		our_shader.set_float("center_x", center_x);
-		our_shader.set_float("center_y", center_y);
 		our_shader.set_vec2("window", glm::vec2(screen_width, screen_height));
+
+		// Set interactive dipole position and direction
+		glfwGetCursorPos(window, &sel_pos.x, &sel_pos.y);
+		sel_pos.y = screen_height - sel_pos.y; // Shader XY origin is bottom left but origin is top left with inverted Y
+		our_shader.set_vec2("sel_pos", sel_pos);
+		our_shader.set_vec2("sel_dir", glm::vec2(sin(angle * PI / 180), cos(angle * PI / 180)));
 
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -147,49 +150,18 @@ void processInput(GLFWwindow* window)
 		}
 	}
 
-	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 	{
-		center_y = center_y - move_speed * 0.1f * zoom * delta_time;
-		if (center_y < -1.0f)
-		{
-			center_y = -1.0f;
-		}
+		angle += 120.0f * delta_time;
+		if (angle >= 360.0f)
+			angle -= 360.0f;
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
 	{
-		center_x = center_x - move_speed * 0.1f * zoom * delta_time;
-		if (center_x < -1.0f)
-		{
-			center_x = -1.0f;
-		}
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-	{
-		center_x = center_x + move_speed * 0.1f * zoom * delta_time;
-		if (center_x > 1.0f)
-		{
-			center_x = 1.0f;
-		}
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-	{
-		zoom = zoom * (1.0f + zoom_speed * delta_time);
-		if (zoom > 1.0f)
-		{
-			zoom = 1.0f;
-		}
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-	{
-		zoom = zoom * (1.0f - zoom_speed * delta_time);
-		if (zoom < 0.000001f)
-		{
-			zoom = 0.000001f;
-		}
+		angle -= 120.0f * delta_time;
+		if (angle < 0.0f)
+			angle += 360.0f;
 	}
 }
 

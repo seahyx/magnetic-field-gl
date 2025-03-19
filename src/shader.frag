@@ -12,6 +12,9 @@ uniform float center_y;
 uniform float zoom;
 uniform vec2 window;
 
+uniform vec2 sel_pos;
+uniform vec2 sel_dir;
+
 float hue2rgb(float f1, float f2, float hue) {
     if (hue < 0.0)
         hue += 1.0;
@@ -75,9 +78,11 @@ vec2 calculateMagneticField(vec2 pos, vec2 source, vec2 direction, float moment)
  
 void main()
 {
-    vec2 fieldStr = calculateMagneticField(gl_FragCoord.xy, window.xy / 2, vec2(0.0f, 1.0f) , 0.1f);
+    vec2 fieldStr = calculateMagneticField(gl_FragCoord.xy, window / 2, vec2(0.0f, 1.0f) , 0.1f);
+    fieldStr += calculateMagneticField(gl_FragCoord.xy, sel_pos, sel_dir , 0.1f);
+
     float fieldStrLen = min(length(fieldStr), 1.0f);
-    vec3 col = hsl2rgb((1.0f - fieldStrLen) * (270.0f/360.0f), 1.0f, 0.5f);
+    vec3 col = hsl2rgb((1.0f - fieldStrLen) * (300.0f/360.0f), 1.0f, min(fieldStrLen * 2, 0.5f));
     
     frag_color = vec4(col, 1.0f);
 }
