@@ -75,7 +75,7 @@ vec2 calculateMagneticField(vec2 pos, vec2 source, vec2 direction, float moment)
 
     return B_r * A_rad + B_theta * A_tan;
 }
- 
+
 void main()
 {
     vec2 fieldStr = calculateMagneticField(gl_FragCoord.xy, window / 2, vec2(0.0f, 1.0f) , 0.1f);
