@@ -49,7 +49,6 @@ int main()
 	glViewport(0, 0, screen_width, screen_height);
 	/* Register Callbacks */
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-	
 
 	
 	// Setup vertex data and buffers and configure vertex attributes
@@ -73,6 +72,17 @@ int main()
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
+
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330 core");
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
 
 	// Initialize shader
 	Shader our_shader("src/shader.vert", "src/shader.frag");
@@ -99,6 +109,12 @@ int main()
 		glClearColor(.2f, .3f, .3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		// Start the Dear ImGui frame
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+		ImGui::ShowDemoWindow(); // Show demo window! :)
+
 		our_shader.use_shader();
 		our_shader.set_vec2("window", glm::vec2(screen_width, screen_height));
 
@@ -111,19 +127,31 @@ int main()
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
+		ImGui::Begin("Hello Viewer");
+		ImGui::Text("Hello, world!");
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		// Check and call events and swap buffers
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+
 	}
 	//============================================//
 	//              END RENDER LOOP
 	//============================================//
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
 	/* Cleanup */
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
 	glDeleteBuffers(1, &EBO);
 
+	glfwDestroyWindow(window);
 	glfwTerminate();
 
 	return 0;

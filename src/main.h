@@ -7,6 +7,11 @@
 #include <algorithm>
 #include <vector>
 
+#include <imgui\imgui.h>
+#include <imgui\backends\imgui_impl_opengl3.h>
+#include <imgui\backends\imgui_impl_glfw.h>
+
+
 #include <glad\glad.h>
 #include <GLFW\glfw3.h>
 #include <GLM\glm.hpp>
@@ -14,6 +19,7 @@
 #include <GLM\gtc\type_ptr.hpp>
 
 #include "shader.h"
+
 
 constexpr auto PI = 3.141529;
 
