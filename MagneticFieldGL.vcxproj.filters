@@ -30,16 +30,16 @@
     <ClCompile Include="src\shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="include\imgui\backends\imgui_impl_glfw.cpp">
-      <Filter>Source Files\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="include\imgui\backends\imgui_impl_opengl3.cpp">
-      <Filter>Source Files\imgui</Filter>
-    </ClCompile>
     <ClCompile Include="include\imgui\imgui_demo.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\imgui_draw.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui_impl_glfw.cpp">
+      <Filter>Source Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="include\imgui\imgui_impl_opengl3.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
     <ClCompile Include="include\imgui\imgui_tables.cpp">
@@ -67,10 +67,10 @@
     <ClInclude Include="src\main.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\backends\imgui_impl_glfw.h">
+    <ClInclude Include="include\imgui\imgui_impl_glfw.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\imgui.h">
+    <ClInclude Include="include\imgui\imgui_impl_opengl3.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
     <ClInclude Include="include\imgui\imgui_internal.h">
@@ -88,7 +88,10 @@
     <ClInclude Include="include\imgui\imconfig.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="include\imgui\backends\imgui_impl_opengl3.h">
+    <ClInclude Include="include\imgui\imgui.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\imgui\imgui_impl_opengl3_loader.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
   </ItemGroup>
