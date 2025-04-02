@@ -93,6 +93,9 @@ int main()
 
 	glEnable(GL_DEPTH_TEST);
 
+	// Declare the moment variable
+	float moment = 0.1f;
+
 	//============================================//
 	//             START RENDER LOOP
 	//============================================//
@@ -113,7 +116,7 @@ int main()
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-		ImGui::ShowDemoWindow(); // Show demo window! :)
+		//ImGui::ShowDemoWindow(); // Show demo window! :)
 
 		our_shader.use_shader();
 		our_shader.set_vec2("window", glm::vec2(screen_width, screen_height));
@@ -123,12 +126,16 @@ int main()
 		sel_pos.y = screen_height - sel_pos.y; // Shader XY origin is bottom left but origin is top left with inverted Y
 		our_shader.set_vec2("sel_pos", sel_pos);
 		our_shader.set_vec2("sel_dir", glm::vec2(sin(angle * PI / 180), cos(angle * PI / 180)));
+		our_shader.set_float("sel_moment", moment); // Set the moment uniform
 
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-		ImGui::Begin("Hello Viewer");
-		ImGui::Text("Hello, world!");
+		ImGui::Begin("Ui");
+		ImGui::Text("Adjust Moving Dipole Moment");
+		ImGui::SliderFloat("Dipole Moment", &moment, 0.5f, 2.0f);
+
+
 		ImGui::End();
 
 		ImGui::Render();
