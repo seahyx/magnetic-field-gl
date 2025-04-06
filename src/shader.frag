@@ -4,7 +4,6 @@
 
 in vec4 gl_FragCoord;
 
-out float gl_FragDepth;
 out vec4 frag_color;
 
 uniform float center_x;
