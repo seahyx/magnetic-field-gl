@@ -2,6 +2,7 @@
 #define MAGNETICDIPOLE_H
 
 #include <glm/glm.hpp>
+#include <vector>
 
 class MagneticDipole {
 public:
@@ -19,6 +20,7 @@ public:
 
     // Method to calculate the magnetic field at a given position
     glm::vec2 calculateMagneticField(const glm::vec2& pos) const;
+
 
 private:
     glm::vec2 sel_pos;   // Position of the dipole

@@ -1,6 +1,11 @@
 #include "main.h"
 #include "MagneticDipole.h"
 #include <vector>
+#include <cmath> // Add this include at the top of the file
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 int main()
 {
@@ -92,8 +97,10 @@ int main()
         our_shader.set_vec2("window", glm::vec2(screen_width, screen_height));
 
         // Pass dipole data to the shader
+        // Pass dipole data to the 
         our_shader.set_int("num_dipoles", (int)dipoles.size());
         for (int i = 0; i < dipoles.size(); i++) {
+            //renderFieldLines(dipoles[i], VAO, VBO);
             std::string base = "dipoles[" + std::to_string(i) + "]";
             our_shader.set_vec2(base + ".position", dipoles[i].getPosition());
             our_shader.set_vec2(base + ".direction", dipoles[i].getDirection());
@@ -121,6 +128,7 @@ int main()
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 
         // Swap buffers and poll events
         glfwSwapBuffers(window);
