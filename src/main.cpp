@@ -64,10 +64,17 @@ int main()
 
     // Initialize magnetic dipoles
     std::vector<MagneticDipole> dipoles;
-    dipoles.push_back(MagneticDipole(glm::vec2(200.0f, 200.0f), glm::vec2(0.0f, 1.0f), 0.1f));
-    dipoles.push_back(MagneticDipole(glm::vec2(400.0f, 300.0f), glm::vec2(1.0f, 0.0f), 0.2f));
-    dipoles.push_back(MagneticDipole(glm::vec2(600.0f, 400.0f), glm::vec2(0.0f, -1.0f), 0.3f));
-    dipoles.push_back(MagneticDipole(glm::vec2(800.0f, 500.0f), glm::vec2(-1.0f, 0.0f), 0.4f));
+    float horizontal_spacing = 200.0f;
+    float vertical_spacing = 200.0f;
+    for(int i = 0; i < 10; i++) {
+
+        dipoles.push_back(MagneticDipole(glm::vec2(horizontal_spacing, vertical_spacing), glm::vec2(0.0f, 1.0f), moment));
+        vertical_spacing += 100.0f;
+        if (i == 4) {
+            horizontal_spacing += 100.0f;
+            vertical_spacing = 200.0f;
+        }
+    }
 
 
     // Enable depth testing
