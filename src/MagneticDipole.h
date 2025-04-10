@@ -21,6 +21,9 @@ public:
     // Method to calculate the magnetic field at a given position
     glm::vec2 calculateMagneticField(const glm::vec2& pos) const;
 
+    // Method to trace the field line of the dipole
+    std::vector<float> traceFieldLine(const MagneticDipole& dipole, glm::vec2 start, float stepSize, int steps) const;
+
 
 private:
     glm::vec2 sel_pos;   // Position of the dipole
