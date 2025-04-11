@@ -90,21 +90,21 @@ void main() {
         fieldStr += calculateMagneticField(gl_FragCoord.xy, dipoles[i]);
     }
 
-    float fieldStrLen = length(fieldStr);
+    float fieldStrLen = length(fieldStr); //field strength magnitude
     float logField = log(1.0 + fieldStrLen); // Log scale for better visualization
-    float normalizedField = min(logField * 0.1, 1.0); // Adjust scaling as needed
+    float normalizedField = min(fieldStrLen * 0.001, 1.0); // Adjust scaling as needed
 
     // Base color from field strength
     vec3 col = hsl2rgb((1.0 - normalizedField) * (300.0 / 360.0), 1.0, min(normalizedField * 2.0, 0.5));
 
     // Add field lines using contours
-    float lineStrength = sin(logField * 20.0); // Frequency controls line density
+    float lineStrength = fieldStrLen > 1e-4 ? sin(logField * 20.0) : 0.0; // Frequency controls line density
     float lineWidth = 0.1; // Adjust for line thickness
-    float line = smoothstep(lineWidth, 0.0, abs(lineStrength)); // Smooth transition for lines
+    float line = smoothstep(lineWidth, 0.0, abs(lineStrength)); // Smooth transition for lines)
     vec3 lineColor = vec3(1.0); // White lines (or adjust to taste)
 
     // Combine base color with field lines
-    col = mix(col, lineColor, line * 0.8); // Blend lines with base color (0.8 = line opacity)
+    col = mix(col, lineColor, line*0.8); // Blend lines with base color (0.8 = line opacity)
 
-    frag_color = vec4(col, 1.0);
+    frag_color = vec4(col, 1.0f);
 }
