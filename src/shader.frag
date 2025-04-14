@@ -85,13 +85,25 @@ vec2 calculateMagneticField(vec2 pos, MagneticDipole dipole) {
 void main() {
     vec2 fieldStr = vec2(0.0);
 
-    // Accumulate the magnetic field contributions from all dipoles
+    // Accumulate magnetic field contributions
     for (int i = 0; i < num_dipoles; i++) {
         fieldStr += calculateMagneticField(gl_FragCoord.xy, dipoles[i]);
     }
 
-    float fieldStrLen = min(length(fieldStr), 1.0f);
-    vec3 col = hsl2rgb((1.0f - fieldStrLen) * (300.0f / 360.0f), 1.0f, min(fieldStrLen * 2, 0.5f));
+    float fieldStrLen = length(fieldStr); //field strength magnitude
+    float logField = log(1.0 + fieldStrLen); // Log scale for better visualization
+    //for dipole shading
+    float normalizedField = min(fieldStrLen*0.1, 1.0);
+    // Base color from field strength
+    vec3 col = hsl2rgb((1.0 - normalizedField) * (300.0 / 360.0), 1.0, min(normalizedField * 2.0, 0.5));
+
+    // Add field lines using contours
+    float lineStrength = fieldStrLen > 0.50 ?sin(logField * 20.0) : 0.0; // Frequency controls line density
+    float line = abs(lineStrength)>0.95 ? 1.0 : 0.0; // adjusting the 0.95 value will change the line density
+    vec3 lineColor = vec3(1.0);
+
+    // Combine base color with field lines
+    col = mix(col, lineColor, line*0.8); // Blend lines with base color (0.8 = line opacity)
 
     frag_color = vec4(col, 1.0f);
 }

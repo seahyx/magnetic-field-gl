@@ -1,7 +1,6 @@
 #include "MagneticDipole.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
-#include <cmath>
 
 #define PIXELS_PER_METER 100.0f
 

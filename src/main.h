@@ -19,6 +19,7 @@
 #include <GLM\gtc\type_ptr.hpp>
 
 #include "shader.h"
+#include "MagneticDipole.h" 
 
 
 constexpr auto PI = 3.141529;
@@ -65,3 +66,5 @@ void processInput(GLFWwindow* window);
 void countFPS();
 /* Delta time updater function prototype */
 void updateDeltaTime();
+/* Magnetic field line rendering function prototype */
+void renderFieldLines(const MagneticDipole& dipole, GLuint vao, GLuint vbo);
