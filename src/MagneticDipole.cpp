@@ -46,18 +46,3 @@ glm::vec2 MagneticDipole::calculateMagneticField(const glm::vec2& pos) const {
 
     return B_r * A_rad + B_theta * A_tan;
 }
-
-std::vector<float> MagneticDipole::traceFieldLine(const MagneticDipole& dipole, glm::vec2 start, float stepSize, int steps) const
-{
-    std::vector<float> vertices; // x, y per point
-    glm::vec2 pos = start;
-    for (int i = 0; i < steps; i++) {
-        vertices.push_back(pos.x);
-        vertices.push_back(pos.y);
-        glm::vec2 B = dipole.calculateMagneticField(pos);
-        float magB = glm::length(B);
-        if (magB < 1e-6f) break; // Avoid tiny fields
-        pos += stepSize * (B / magB); // Normalized step
-    }
-    return vertices;
-}
