@@ -2,10 +2,21 @@
 
 int main()
 {
-    /* Initialize GLFW */
+    /*
+    * Initialize GLFW
+    *
+    * GLFW is configured using glfwWindowHint.
+    * glfwWindowHint takes in 2 parameters, the option, and the value.
+    * option is selected from a large enum of possible options prefixed with 'GLFW_'.
+    * value is an integer that sets the value of the option.
+    *
+    * All options can be found here: https://www.glfw.org/docs/latest/window.html#window_hints
+    */
     glfwInit();
+    // Set the target OpenGL version to 3.3
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    // Use core-profile mode without backwards-compatible features
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     /* Create window object */
@@ -18,7 +29,15 @@ int main()
     }
     glfwMakeContextCurrent(window);
 
-    /* Initialize GLAD */
+    /*
+    * Initialize GLAD
+    *
+    * GLAD manages function pointers for OpenGL, so we have to initialize it before
+    * calling any OpenGL function.
+    *
+    * GLFW defines glfwGetProcAddress for us, which is an OS-specific address of the
+    * OpenGL function pointers.
+    */
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -63,6 +82,10 @@ int main()
     // Initialize shader
     Shader our_shader("src/shader.vert", "src/shader.frag");
 
+    // Initialize last_time for FPS counting
+    last_time = glfwGetTime();
+    updateDeltaTime();
+
     // Initialize magnetic dipoles
     std::vector<MagneticDipole> dipoles;
     float horizontal_spacing = 200.0f;
@@ -86,6 +109,8 @@ int main()
     {
         // Process input
         processInput(window);
+        countFPS();
+        updateDeltaTime();
 
         // Clear screen
         glClearColor(.2f, .3f, .3f, 1.0f);
@@ -177,4 +202,23 @@ void processInput(GLFWwindow *window)
         if (angle < 0.0f)
             angle += 360.0f;
     }
+}
+
+void countFPS()
+{
+    double current_time = glfwGetTime();
+    num_frames++;
+    if (current_time - last_time >= 1.0f)
+    {
+        std::cout << 1000.0 * (current_time - last_time) / num_frames << "ms / frame" << std::endl;
+        num_frames = 0;
+        last_time += 1.0f;
+    }
+}
+
+void updateDeltaTime()
+{
+    double current_time = glfwGetTime();
+    delta_time = current_time - last_frame_time;
+    last_frame_time = current_time;
 }
