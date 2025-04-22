@@ -1,11 +1,4 @@
 #include "main.h"
-#include "MagneticDipole.h"
-#include <vector>
-#include <cmath> // Add this include at the top of the file
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 int main()
 {
@@ -76,7 +69,6 @@ int main()
     float vertical_spacing = 200.0f;
     for (int i = 0; i < 10; i++)
     {
-
         dipoles.push_back(MagneticDipole(glm::vec2(horizontal_spacing, vertical_spacing), glm::vec2(0.0f, 1.0f), moment));
         vertical_spacing += 100.0f;
         if (i == 4)
@@ -109,7 +101,6 @@ int main()
         our_shader.set_vec2("window", glm::vec2(screen_width, screen_height));
 
         // Pass dipole data to the shader
-        // Pass dipole data to the
         our_shader.set_int("num_dipoles", (int)dipoles.size());
         for (int i = 0; i < dipoles.size(); i++)
         {

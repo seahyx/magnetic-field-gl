@@ -26,9 +26,9 @@ public:
 
 
 private:
-    glm::vec2 sel_pos;   // Position of the dipole
-    glm::vec2 sel_dir;   // Direction of the dipole
-    float moment;        // Magnetic moment
+    glm::vec2 mPosition;   // Position of the dipole
+    glm::vec2 mDirection;   // Direction of the dipole
+    float mMoment;        // Magnetic moment
 };
 
 #endif

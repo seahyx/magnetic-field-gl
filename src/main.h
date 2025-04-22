@@ -6,6 +6,7 @@
 #include <math.h>
 #include <algorithm>
 #include <vector>
+#include <cmath>
 
 #include <imgui\imgui.h>
 #include <imgui\imgui_impl_opengl3.h>
@@ -19,7 +20,7 @@
 #include <GLM\gtc\type_ptr.hpp>
 
 #include "shader.h"
-#include "MagneticDipole.h" 
+#include "dipole.h" 
 
 
 constexpr auto PI = 3.141529;

@@ -51,7 +51,7 @@
     <ClCompile Include="include\imgui\imgui.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="src\MagneticDipole.cpp">
+    <ClCompile Include="src\dipole.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -64,12 +64,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\shader.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\main.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\imgui\imgui_impl_glfw.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
@@ -97,7 +91,13 @@
     <ClInclude Include="include\imgui\imgui_impl_opengl3_loader.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="src\MagneticDipole.h">
+    <ClInclude Include="src\dipole.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
