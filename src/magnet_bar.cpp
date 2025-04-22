@@ -2,10 +2,9 @@
 #include <algorithm>
 #include <glm/gtc/constants.hpp>
 
-constexpr auto PIXELS_PER_METER = 100.0f;
-
-BarMagnet::BarMagnet(const glm::vec3& position, const glm::vec3& size, float dipoleDensity, float momentPerDipole, Transform* parent)
+BarMagnet::BarMagnet(const glm::vec3& position, const glm::vec3& size, float dipoleDensity, float momentPerDipole, Transform* parent, float pixelsPerMeter)
     : Transform(position, glm::vec3(0.0f), parent)
+	, BaseMagnet(pixelsPerMeter)
     , mSize(size)
     , mDipoleDensity(dipoleDensity)
     , mMomentPerDipole(momentPerDipole)
@@ -43,6 +42,39 @@ void BarMagnet::setDipoleDensity(float density) {
     initializeTraceStartPoints();
 }
 
+void BarMagnet::updateDipoles() {
+    // Clean up existing dipoles
+    for (auto dipole : mDipoles) {
+        delete dipole;
+    }
+    mDipoles.clear();
+
+    // Convert size to meters
+    glm::vec3 sizeMeters = mSize / mPixelsPerMeter;
+
+    // Calculate number of dipoles along each axis
+    glm::ivec3 numDipoles = glm::max(glm::ivec3(sizeMeters * mDipoleDensity), glm::ivec3(1));
+
+    // Calculate spacing between dipoles in meters
+    glm::vec3 spacing = sizeMeters / glm::vec3(numDipoles);
+
+    // Create dipoles
+    for (int x = 0; x < numDipoles.x; ++x) {
+        for (int y = 0; y < numDipoles.y; ++y) {
+            for (int z = 0; z < numDipoles.z; ++z) {
+                // Calculate local position of dipole (centered around origin)
+                glm::vec3 localPos = (glm::vec3(x, y, z) + 0.5f) * spacing - sizeMeters * 0.5f;
+                // Convert back to pixels
+                localPos *= mPixelsPerMeter;
+
+                // Create dipole with forward direction along magnet's forward vector
+                MagneticDipole* dipole = new MagneticDipole(localPos, mMomentPerDipole, this);
+                mDipoles.push_back(dipole);
+            }
+        }
+    }
+}
+
 void BarMagnet::initializeTraceStartPoints() {
     mTraceStartPoints.clear();
 
@@ -64,39 +96,6 @@ void BarMagnet::initializeTraceStartPoints() {
         point.position = position;
         point.direction = TraceDirection::Both;
         mTraceStartPoints.push_back(point);
-    }
-}
-
-void BarMagnet::updateDipoles() {
-    // Clean up existing dipoles
-    for (auto dipole : mDipoles) {
-        delete dipole;
-    }
-    mDipoles.clear();
-
-    // Convert size to meters
-    glm::vec3 sizeMeters = mSize / PIXELS_PER_METER;
-
-    // Calculate number of dipoles along each axis
-    glm::ivec3 numDipoles = glm::max(glm::ivec3(sizeMeters * mDipoleDensity), glm::ivec3(1));
-
-    // Calculate spacing between dipoles in meters
-    glm::vec3 spacing = sizeMeters / glm::vec3(numDipoles);
-
-    // Create dipoles
-    for (int x = 0; x < numDipoles.x; ++x) {
-        for (int y = 0; y < numDipoles.y; ++y) {
-            for (int z = 0; z < numDipoles.z; ++z) {
-                // Calculate local position of dipole (centered around origin)
-                glm::vec3 localPos = (glm::vec3(x, y, z) + 0.5f) * spacing - sizeMeters * 0.5f;
-                // Convert back to pixels
-                localPos *= PIXELS_PER_METER;
-
-                // Create dipole with forward direction along magnet's forward vector
-                MagneticDipole* dipole = new MagneticDipole(localPos, mMomentPerDipole, this);
-                mDipoles.push_back(dipole);
-            }
-        }
     }
 }
 

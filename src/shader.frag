@@ -1,20 +1,17 @@
 #version 330 core
 
-#define PIXELS_PER_METER 100
+uniform int pixels_per_meter;
 
 in vec4 gl_FragCoord;
-
 out vec4 frag_color;
 
-uniform float center_x;
-uniform float center_y;
-uniform float zoom;
-uniform vec2 window;
+uniform mat4 view;
+uniform mat4 projection;
 
 // Define a struct for a magnetic dipole
 struct MagneticDipole {
-    vec2 position;
-    vec2 direction;
+    vec3 position;
+    vec3 direction;
     float moment;
 };
 
@@ -65,52 +62,88 @@ vec3 hsl2rgb(float h, float s, float l) {
     return hsl2rgb(vec3(h, s, l));
 }
 
-vec2 calculateMagneticField(vec2 pos, MagneticDipole dipole) {
-    vec2 A = pos - dipole.position; // Relative position of current pixel from dipole
+vec3 calculateMagneticField(vec3 pos, MagneticDipole dipole) {
+    vec3 A = pos - dipole.position;
     float r = length(A);
-    if (r == 0.0) return vec2(0.0); // Avoid divide-by-zero
-    vec2 A_rad = A / r; // Radial direction of pixel from dipole
-    vec2 A_tan = vec2(A_rad.y, -A_rad.x); // Clockwise tangential direction
-    
-    float cos_theta = dot(A_rad, dipole.direction); // Component of dipole moment in radial unit vector
-    float sin_theta = dot(A_tan, dipole.direction); // Since A_tan is perpendicular to A_rad
+    if (r < 0.0001) return vec3(0.0); // Avoid divide-by-zero
+    vec3 A_rad = A / r;
 
-    r /= PIXELS_PER_METER;
-    float r_cube = r * r * r;
-    
-    // We skip the constants, assume pre-multiplied
-    float B_r = (2.0 * dipole.moment * cos_theta) / r_cube; // Radial field magnitude
-    float B_theta = (dipole.moment * sin_theta) / r_cube; // Tangential field magnitude
+    // Find a perpendicular axis for tangential plane
+    vec3 perpAxis;
+    if (abs(A_rad.x) < abs(A_rad.y) && abs(A_rad.x) < abs(A_rad.z)) {
+        perpAxis = vec3(1.0, 0.0, 0.0);
+    } else if (abs(A_rad.y) < abs(A_rad.z)) {
+        perpAxis = vec3(0.0, 1.0, 0.0);
+    } else {
+        perpAxis = vec3(0.0, 0.0, 1.0);
+    }
 
-    return B_r * A_rad + B_theta * A_tan;
-}
+    vec3 A_tan1 = normalize(cross(A_rad, perpAxis));
+    vec3 A_tan2 = cross(A_rad, A_tan1);
 
-vec3 drawContour(vec3 col, float fieldStrLen, float logField)
-{
-    // Add field lines using contours
-    float lineStrength = fieldStrLen > 0.50 ?sin(logField * 20.0) : 0.0; // Frequency controls line density
-    float line = abs(lineStrength)>0.95 ? 1.0 : 0.0; // adjusting the 0.95 value will change the line density
-    vec3 lineColor = vec3(1.0);
-    return mix(col, lineColor, line*0.8); // Blend lines with base color (0.8 = line opacity)
+    float cos_theta = dot(A_rad, dipole.direction);
+    vec3 dirTangential = dipole.direction - cos_theta * A_rad;
+    float sin_theta_mag = length(dirTangential);
+
+    float r_meters = r / pixels_per_meter;
+    float r_cube = r_meters * r_meters * r_meters;
+
+    float B_r = (2.0 * dipole.moment * cos_theta) / r_cube;
+    vec3 B_field = B_r * A_rad;
+
+    if (sin_theta_mag > 0.0001) {
+        vec3 A_tan_dir = dirTangential / sin_theta_mag;
+        float B_theta = (dipole.moment * sin_theta_mag) / r_cube;
+        B_field += B_theta * A_tan_dir;
+    }
+
+    return B_field;
 }
 
 void main() {
-    vec2 fieldStr = vec2(0.0);
+    // Convert fragment coordinate to normalized device coordinates
+    vec2 ndc = (gl_FragCoord.xy / vec2(1920, 1080)) * 2.0 - 1.0;
+    float aspect_ratio = 1920.0 / 1080.0;
 
-    // Accumulate magnetic field contributions
-    for (int i = 0; i < num_dipoles; i++) {
-        fieldStr += calculateMagneticField(gl_FragCoord.xy, dipoles[i]);
+    // Compute world position on near plane
+    mat4 inv_view = inverse(view);
+    mat4 inv_proj = inverse(projection);
+    vec4 near_plane = inv_proj * vec4(ndc, -1.0, 1.0);
+    near_plane /= near_plane.w;
+    vec4 world_near = inv_view * near_plane;
+    
+    // Compute ray direction
+    vec3 camera_pos = (inv_view * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec3 ray_dir = normalize(world_near.xyz - camera_pos);
+
+    // Cuboid bounds
+    vec3 cuboid_min = vec3(-2.0, -1.5, -1.0);
+    vec3 cuboid_max = vec3(2.0, 1.5, 1.0);
+
+    // Ray-box intersection
+    vec3 inv_dir = 1.0 / ray_dir;
+    vec3 t0 = (cuboid_min - camera_pos) * inv_dir;
+    vec3 t1 = (cuboid_max - camera_pos) * inv_dir;
+    vec3 tmin = min(t0, t1);
+    vec3 tmax = max(t0, t1);
+    float t_near = max(max(tmin.x, tmin.y), tmin.z);
+    float t_far = min(min(tmax.x, tmax.y), tmax.z);
+
+    vec3 field_str = vec3(0.0);
+    if (t_near < t_far && t_near >= 0.0) {
+        // Intersection point
+        vec3 pos = camera_pos + t_near * ray_dir;
+
+        // Accumulate magnetic field
+        for (int i = 0; i < num_dipoles; i++) {
+            field_str += calculateMagneticField(pos, dipoles[i]);
+        }
     }
 
-    float fieldStrLen = length(fieldStr); // Field strength magnitude
-    // float logField = log(1.0 + fieldStrLen); // Log scale for better visualization
-    //for dipole shading
-    float normalizedField = min(fieldStrLen*0.1, 1.0);
-    // Base color from field strength
-    vec3 col = hsl2rgb((1.0 - normalizedField) * (300.0 / 360.0), 1.0, min(normalizedField * 2.0, 0.5));
+    float field_str_len = length(field_str);
+    float normalized_field = min(field_str_len * 0.1, 1.0);
+    vec3 col = hsl2rgb((1.0 - normalized_field) * (300.0 / 360.0), 1.0, min(normalized_field * 2.0, 0.5));
 
-    // Contour shading
-    // col = drawContour(col, fieldStrLen, logField);
-
-    frag_color = vec4(col, 1.0f);
+    // Make field semi-transparent
+    frag_color = vec4(col, 0.5);
 }

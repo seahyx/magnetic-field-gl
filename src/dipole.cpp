@@ -1,30 +1,53 @@
 #include "dipole.h"
 #include <glm/gtc/constants.hpp>
 
-constexpr auto PIXELS_PER_METER = 100.0f;
-
 // Constructor that uses default forward direction (0,0,-1)
-MagneticDipole::MagneticDipole(const glm::vec3& position, float moment, Transform* parent)
-    : Transform(position, glm::vec3(0.0f), parent), // Default rotation
-    mMoment(moment)
+MagneticDipole::MagneticDipole(const glm::vec3& position, float moment, Transform* parent, float pixelsPerMeter)
+    : Transform(position, glm::vec3(0.0f), parent) // Default rotation
+	, BaseMagnet(pixelsPerMeter)
+    , mMoment(moment)
 {
+    initializeDipoleTracePoints();
 }
 
 // Constructor that initializes with a specific direction
-MagneticDipole::MagneticDipole(const glm::vec3& position, const glm::vec3& initialDirection, float moment, Transform* parent)
-    : Transform(position, glm::vec3(0.0f), parent), // Will set proper rotation below
-    mMoment(moment)
+MagneticDipole::MagneticDipole(const glm::vec3& position, const glm::vec3& initialDirection, float moment, Transform* parent, float pixelsPerMeter)
+    : Transform(position, glm::vec3(0.0f), parent) // Will set proper rotation below
+    , BaseMagnet(pixelsPerMeter)
+    , mMoment(moment)
 {
-    // Set the direction using the lookAt method
     setDirection(initialDirection);
+    initializeDipoleTracePoints();
+}
+
+void MagneticDipole::initializeDipoleTracePoints() {
+    mTraceStartPoints.clear();
+
+    constexpr int NUM_POINTS = 6; // Number of points in circle
+    constexpr float RADIUS = 0.1f; // Small radius in pixels
+
+    glm::vec3 center = getWorldPosition();
+    glm::vec3 up = getUp();
+    glm::vec3 right = getRight();
+
+    // Create points in a circle perpendicular to the dipole direction
+    for (int i = 0; i < NUM_POINTS; ++i) {
+        float angle = i * 2.0f * glm::pi<float>() / NUM_POINTS;
+        glm::vec3 offset = (cos(angle) * right + sin(angle) * up) * RADIUS;
+
+        TraceStartPoint point;
+        point.position = center + offset;
+        point.direction = TraceDirection::Both;
+        mTraceStartPoints.push_back(point);
+    }
 }
 
 void MagneticDipole::setDirection(const glm::vec3& direction) {
     if (glm::length(direction) > 0.0001f) {
         // Use lookAt to orient the dipole in the direction
-        // We look from the current position toward position + direction
         glm::vec3 targetPos = getWorldPosition() + glm::normalize(direction);
         lookAt(targetPos);
+        initializeDipoleTracePoints(); // Update trace points when direction changes
     }
 }
 
@@ -57,10 +80,6 @@ glm::vec3 MagneticDipole::calculateMagneticField(const glm::vec3& pos) const {
     glm::vec3 A_rad = A / r; // Radial direction of pos from dipole
 
     // Create a perpendicular vector in 3D
-	// We need to create a tangential plane - first get a non-parallel vector
-    // Find a vector in any of the three axes that is the least parallel to A_rad
-	// for numerical stability when calculating the cross product
-    // (to obtain a truly perpendicular vector)
     glm::vec3 perpAxis;
     if (std::abs(A_rad.x) < std::abs(A_rad.y) && std::abs(A_rad.x) < std::abs(A_rad.z)) {
         perpAxis = glm::vec3(1.0f, 0.0f, 0.0f); // x-axis
@@ -83,7 +102,7 @@ glm::vec3 MagneticDipole::calculateMagneticField(const glm::vec3& pos) const {
     float sin_theta_mag = glm::length(dirTangential);
 
     // Convert to meters for field calculation
-    float r_meters = r / PIXELS_PER_METER;
+    float r_meters = r / mPixelsPerMeter;
     float r_cube = r_meters * r_meters * r_meters;
 
     // Calculate field components

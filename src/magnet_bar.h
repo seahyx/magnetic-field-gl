@@ -8,7 +8,7 @@
 class BarMagnet : public Transform, public BaseMagnet {
 public:
     // Constructor initializes bar magnet with size (length, width, height) and dipole density (dipoles per meter)
-    BarMagnet(const glm::vec3& position, const glm::vec3& size, float dipoleDensity, float momentPerDipole, Transform* parent = nullptr);
+    BarMagnet(const glm::vec3& position, const glm::vec3& size, float dipoleDensity, float momentPerDipole, Transform* parent = nullptr, float pixelsPerMeter = 100.0f);
 
     // Destructor to clean up dipoles
     ~BarMagnet();

@@ -8,22 +8,24 @@
 #include <vector>
 #include <cmath>
 
-#include <imgui\imgui.h>
-#include <imgui\imgui_impl_opengl3.h>
-#include <imgui\imgui_impl_glfw.h>
+#include <imgui/imgui.h>
+#include <imgui/imgui_impl_opengl3.h>
+#include <imgui/imgui_impl_glfw.h>
 
-
-#include <glad\glad.h>
-#include <GLFW\glfw3.h>
-#include <GLM\glm.hpp>
-#include <GLM\gtc\matrix_transform.hpp>
-#include <GLM\gtc\type_ptr.hpp>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "shader.h"
-#include "dipole.h" 
-
+#include "dipole.h"
+#include "camera.h"
+#include "cuboid.h"
 
 constexpr auto PI = 3.141529;
+
+constexpr auto PIXELS_PER_METER = 100.0f;
 
 int screen_width{ 1080 };
 int screen_height{ 1080 };
@@ -41,24 +43,6 @@ float zoom_speed{ 2.0f };
 glm::dvec2 sel_pos = glm::dvec2(0.0);
 float angle{ 0.0f };
 
-float vertices[] =
-{
-	//    x      y      z   
-		-1.0f, -1.0f, -0.0f,
-		 1.0f,  1.0f, -0.0f,
-		-1.0f,  1.0f, -0.0f,
-		 1.0f, -1.0f, -0.0f
-};
-
-unsigned int indices[] =
-{
-	//  2---,1
-	//  | .' |
-	//  0'---3
-		0, 1, 2,
-		0, 3, 1
-};
-
 /* Window resize callback function prototype */
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 /* Window input event callback function prototype */
@@ -67,5 +51,3 @@ void processInput(GLFWwindow* window);
 void countFPS();
 /* Delta time updater function prototype */
 void updateDeltaTime();
-/* Magnetic field line rendering function prototype */
-void renderFieldLines(const MagneticDipole& dipole, GLuint vao, GLuint vbo);

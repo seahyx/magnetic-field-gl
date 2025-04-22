@@ -49,23 +49,7 @@ int main()
     glViewport(0, 0, screen_width, screen_height);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
-    // Setup vertex data and buffers
-    unsigned int VAO, VBO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    // Setup Dear ImGui context
+    /* Setup Dear ImGui context */
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
@@ -76,33 +60,70 @@ int main()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
+    // Initialize camera
+    float aspect_ratio = (float)screen_width / screen_height;
+    Camera camera(glm::vec3(0.0f, 5.0f, 5.0f), glm::vec3(0.0f), 0.1f, 100.0f);
+    camera.setPerspective(60.0f, aspect_ratio);
+
+    // Initialize cuboid (4x3x2 for aspect ratio matching window)
+    float cuboid_width = 4.0f;
+    float cuboid_height = cuboid_width / aspect_ratio;
+    float cuboid_depth = 2.0f;
+    Cuboid cuboid(cuboid_width, cuboid_height, cuboid_depth);
+
+    // Setup field rendering VAO
+    unsigned int field_VAO, field_VBO, field_EBO;
+    glGenVertexArrays(1, &field_VAO);
+    glGenBuffers(1, &field_VBO);
+    glGenBuffers(1, &field_EBO);
+
+    glBindVertexArray(field_VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cuboid.field_vertices), cuboid.field_vertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cuboid.field_indices), cuboid.field_indices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // Setup cuboid edges VAO
+    unsigned int cuboid_VAO, cuboid_VBO, cuboid_EBO;
+    glGenVertexArrays(1, &cuboid_VAO);
+    glGenBuffers(1, &cuboid_VBO);
+    glGenBuffers(1, &cuboid_EBO);
+
+    glBindVertexArray(cuboid_VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, cuboid_VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cuboid.edge_vertices), cuboid.edge_vertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cuboid_EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cuboid.edge_indices), cuboid.edge_indices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // Initialize shaders
+    Shader field_shader("src/shader.vert", "src/shader.frag");
+    Shader cuboid_shader("src/cuboid.vert", "src/cuboid.frag");
+
+    // Initialize magnetic dipoles
+    std::vector<MagneticDipole> dipoles;
+    dipoles.push_back(MagneticDipole(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.1f));
+
     // Initialize variables
+    float fov = 60.0f;
+    bool is_perspective = true;
     float moment = 0.1f;
 
-    // Initialize shader
-    Shader our_shader("src/shader.vert", "src/shader.frag");
+    // Enable depth testing and blending
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Initialize last_time for FPS counting
     last_time = glfwGetTime();
     updateDeltaTime();
-
-    // Initialize magnetic dipoles
-    std::vector<MagneticDipole> dipoles;
-    float horizontal_spacing = 200.0f;
-    float vertical_spacing = 200.0f;
-    for (int i = 0; i < 10; i++)
-    {
-        dipoles.push_back(MagneticDipole(glm::vec2(horizontal_spacing, vertical_spacing), glm::vec2(0.0f, 1.0f), moment));
-        vertical_spacing += 100.0f;
-        if (i == 4)
-        {
-            horizontal_spacing += 100.0f;
-            vertical_spacing = 200.0f;
-        }
-    }
-
-    // Enable depth testing
-    glEnable(GL_DEPTH_TEST);
 
     // Start render loop
     while (!glfwWindowShouldClose(window))
@@ -112,38 +133,61 @@ int main()
         countFPS();
         updateDeltaTime();
 
+        // Update camera projection based on ImGui FOV
+        camera.setPerspective(fov, aspect_ratio);
+        if (!is_perspective) {
+            camera.setOrthographic(cuboid_height / 2.0f, aspect_ratio);
+            camera.setWorldPosition(glm::vec3(0.0f, 5.0f, 0.0f));
+            camera.lookAt(glm::vec3(0.0f));
+        }
+
+        // Handle mouse dragging for rotation in perspective mode
+        if (is_perspective && is_dragging) {
+            double mouse_x, mouse_y;
+            glfwGetCursorPos(window, &mouse_x, &mouse_y);
+            glm::dvec2 current_mouse_pos(mouse_x, screen_height - mouse_y);
+            glm::dvec2 delta = current_mouse_pos - last_mouse_pos;
+            last_mouse_pos = current_mouse_pos;
+
+            float sensitivity = 0.5f;
+            float yaw = delta.x * sensitivity * delta_time;
+            float pitch = delta.y * sensitivity * delta_time;
+
+            glm::vec3 pos = camera.getWorldPosition();
+            glm::quat rot_yaw = glm::angleAxis(glm::radians(-yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::quat rot_pitch = glm::angleAxis(glm::radians(-pitch), camera.getRight());
+            glm::quat rot = rot_yaw * rot_pitch;
+            pos = rot * pos;
+            camera.setWorldPosition(pos);
+            camera.lookAt(glm::vec3(0.0f));
+        }
+
         // Clear screen
         glClearColor(.2f, .3f, .3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Start ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        // Use shader
-        our_shader.use_shader();
-        our_shader.set_vec2("window", glm::vec2(screen_width, screen_height));
-
-        // Pass dipole data to the shader
-        our_shader.set_int("num_dipoles", (int)dipoles.size());
+        // Render magnetic field
+        field_shader.use_shader();
+        field_shader.set_mat4("view", camera.getViewMatrix());
+        field_shader.set_mat4("projection", camera.getProjectionMatrix());
+        field_shader.set_int("num_dipoles", (int)dipoles.size());
+        field_shader.set_float("pixels_per_meter", PIXELS_PER_METER);
         for (int i = 0; i < dipoles.size(); i++)
         {
-            // renderFieldLines(dipoles[i], VAO, VBO);
             std::string base = "dipoles[" + std::to_string(i) + "]";
-            our_shader.set_vec2(base + ".position", dipoles[i].getPosition());
-            our_shader.set_vec2(base + ".direction", dipoles[i].getDirection());
-            our_shader.set_float(base + ".moment", dipoles[i].getMoment());
+            field_shader.set_vec3(base + ".position", dipoles[i].getWorldPosition());
+            field_shader.set_vec3(base + ".direction", dipoles[i].getDirection());
+            field_shader.set_float(base + ".moment", dipoles[i].getMoment());
         }
-
-        // Update the first dipole's position dynamically based on mouse input
-        glfwGetCursorPos(window, &sel_pos.x, &sel_pos.y);
-        sel_pos.y = screen_height - sel_pos.y; // Adjust for OpenGL coordinate system
-        dipoles[0].setPosition(sel_pos);
-
-        // Render scene
-        glBindVertexArray(VAO);
+        glBindVertexArray(field_VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // Render cuboid edges
+        cuboid_shader.use_shader();
+        cuboid_shader.set_mat4("view", camera.getViewMatrix());
+        cuboid_shader.set_mat4("projection", camera.getProjectionMatrix());
+        glBindVertexArray(cuboid_VAO);
+        glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
 
         // ImGui UI
         ImGui::Begin("UI");
@@ -168,9 +212,12 @@ int main()
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &field_VAO);
+    glDeleteBuffers(1, &field_VBO);
+    glDeleteBuffers(1, &field_EBO);
+    glDeleteVertexArrays(1, &cuboid_VAO);
+    glDeleteBuffers(1, &cuboid_VBO);
+    glDeleteBuffers(1, &cuboid_EBO);
     glfwDestroyWindow(window);
     glfwTerminate();
 

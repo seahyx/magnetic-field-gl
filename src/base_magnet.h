@@ -16,7 +16,7 @@ typedef struct {
 
 class BaseMagnet {
 public:
-    BaseMagnet() = default;
+	BaseMagnet(float pixelsPerMeter) : mPixelsPerMeter(pixelsPerMeter) {}
     virtual ~BaseMagnet() = default;
 
     // Pure virtual function for calculating magnetic field
@@ -24,6 +24,8 @@ public:
 
     // Get the trace start points
     const std::vector<TraceStartPoint>& getTraceStartPoints() const { return mTraceStartPoints; }
+
+	float mPixelsPerMeter = 100.0f; // Conversion factor from meters to pixels
 
 protected:
     std::vector<TraceStartPoint> mTraceStartPoints;
