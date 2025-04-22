@@ -19,6 +19,12 @@
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{b8437257-54db-4d3b-81af-927d990dfd54}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\scene">
+      <UniqueIdentifier>{ef8b96bb-cafd-4b4b-8e6a-c1118290e1a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\scene">
+      <UniqueIdentifier>{cfa60dbb-4b69-4346-88a6-779dc066f6e3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\glad.c">
@@ -53,6 +59,9 @@
     </ClCompile>
     <ClCompile Include="src\dipole.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="transform.cpp">
+      <Filter>Source Files\scene</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -99,6 +108,9 @@
     </ClInclude>
     <ClInclude Include="src\shader.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="transform.h">
+      <Filter>Header Files\scene</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

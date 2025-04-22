@@ -152,6 +152,7 @@
     <ClCompile Include="src\dipole.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\shader.cpp" />
+    <ClCompile Include="transform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shader.frag" />
@@ -170,6 +171,7 @@
     <ClInclude Include="src\dipole.h" />
     <ClInclude Include="src\main.h" />
     <ClInclude Include="src\shader.h" />
+    <ClInclude Include="transform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

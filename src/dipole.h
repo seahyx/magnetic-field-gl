@@ -1,34 +1,27 @@
-#ifndef MAGNETICDIPOLE_H
-#define MAGNETICDIPOLE_H
+#pragma once
 
+#include "transform.h"
 #include <glm/glm.hpp>
-#include <vector>
 
-class MagneticDipole {
+// Magnetic dipole is the smallest unit of magnet
+class MagneticDipole : public Transform {
 public:
-    MagneticDipole(const glm::vec2& position, const glm::vec2& direction, float moment);
+    // Constructor now only takes position, moment, and optional parent
+    // Direction is handled by Transform's rotation
+    MagneticDipole(const glm::vec3& position, float moment, Transform* parent = nullptr);
+    MagneticDipole(const glm::vec3& position, const glm::vec3& initialDirection, float moment, Transform* parent = nullptr);
 
-    // Setters
-    void setPosition(const glm::vec2& position);
-    void setDirection(const glm::vec2& direction);
+    // Moment setters/getters (position and direction are handled by Transform)
     void setMoment(float moment);
-
-    // Getters
-    glm::vec2 getPosition() const;
-    glm::vec2 getDirection() const;
     float getMoment() const;
 
+    // Direction now uses transform's forward vector
+    void setDirection(const glm::vec3& direction);
+    glm::vec3 getDirection() const;
+
     // Method to calculate the magnetic field at a given position
-    glm::vec2 calculateMagneticField(const glm::vec2& pos) const;
-
-    // Method to trace the field line of the dipole
-    std::vector<float> traceFieldLine(const MagneticDipole& dipole, glm::vec2 start, float stepSize, int steps) const;
-
+    glm::vec3 calculateMagneticField(const glm::vec3& pos) const;
 
 private:
-    glm::vec2 mPosition;   // Position of the dipole
-    glm::vec2 mDirection;   // Direction of the dipole
-    float mMoment;        // Magnetic moment
+    float mMoment;          // Magnetic moment
 };
-
-#endif
