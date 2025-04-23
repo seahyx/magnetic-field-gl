@@ -3,10 +3,10 @@
 std::set<unsigned int> DipoleVisualizer::active_VAOs = {};
 
 DipoleVisualizer::DipoleVisualizer(float radius, float arrow_length, MagneticDipole* parent,
-    const glm::vec4& faceColor, const glm::vec4& edgeColor)
+    const glm::vec4& northFaceColor, const glm::vec4& southFaceColor, const glm::vec4& edgeColor)
     : Transform(glm::vec3(0.0f), glm::vec3(0.0f), parent),
     m_radius(radius), m_arrow_length(arrow_length),
-    m_faceColor(faceColor), m_edgeColor(edgeColor) {
+    m_northFaceColor(northFaceColor), m_southFaceColor(southFaceColor), m_edgeColor(edgeColor) {
 }
 
 void DipoleVisualizer::printVAO() {
@@ -14,7 +14,7 @@ void DipoleVisualizer::printVAO() {
 }
 
 DipoleVisualizer::~DipoleVisualizer() {
-	std::cout << "Removing dipole with sphere and arrow VAO: " << sphere_VAO << ", " << arrow_VAO << std::endl;
+    std::cout << "Removing dipole with sphere and arrow VAO: " << sphere_VAO << ", " << arrow_VAO << std::endl;
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -41,6 +41,7 @@ void DipoleVisualizer::initialize() {
 
 void DipoleVisualizer::generateSphereGeometry(int sectors, int stacks) {
     sphere_vertices.clear();
+    sphere_colors.clear();
     sphere_indices.clear();
 
     float sectorStep = 2.0f * glm::pi<float>() / sectors;
@@ -58,6 +59,15 @@ void DipoleVisualizer::generateSphereGeometry(int sectors, int stacks) {
             sphere_vertices.push_back(x);
             sphere_vertices.push_back(y);
             sphere_vertices.push_back(z);
+
+            // Assign colors: red for z > 0 (north), blue for z <= 0 (south)
+            glm::vec4 color = (z > 0.0f) ?
+                glm::vec4(1.0f, 0.0f, 0.0f, 1.0f) : // Red (north)
+                glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);  // Blue (south)
+            sphere_colors.push_back(color.r);
+            sphere_colors.push_back(color.g);
+            sphere_colors.push_back(color.b);
+            sphere_colors.push_back(color.a);
         }
     }
 
@@ -96,21 +106,36 @@ void DipoleVisualizer::setupBuffers() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    // Sphere setup
     glGenVertexArrays(1, &sphere_VAO);
     active_VAOs.insert(sphere_VAO);
     glGenBuffers(1, &sphere_VBO);
     glGenBuffers(1, &sphere_EBO);
     glBindVertexArray(sphere_VAO);
+
+    // Vertex positions
     glBindBuffer(GL_ARRAY_BUFFER, sphere_VBO);
     glBufferData(GL_ARRAY_BUFFER, sphere_vertices.size() * sizeof(float), sphere_vertices.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphere_indices.size() * sizeof(unsigned int), sphere_indices.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+
+    // Vertex colors
+    unsigned int sphere_color_VBO;
+    glGenBuffers(1, &sphere_color_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, sphere_color_VBO);
+    glBufferData(GL_ARRAY_BUFFER, sphere_colors.size() * sizeof(float), sphere_colors.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+
+    // Indices
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphere_EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sphere_indices.size() * sizeof(unsigned int), sphere_indices.data(), GL_STATIC_DRAW);
+
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    // Arrow setup
     glGenVertexArrays(1, &arrow_VAO);
     active_VAOs.insert(arrow_VAO);
     glGenBuffers(1, &arrow_VBO);
@@ -126,7 +151,7 @@ void DipoleVisualizer::setupBuffers() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	std::cout << "New dipole with sphere and arrow VAO: " << sphere_VAO << ", " << arrow_VAO << std::endl;
+    std::cout << "New dipole with sphere and arrow VAO: " << sphere_VAO << ", " << arrow_VAO << std::endl;
 
     checkGLError("setupBuffers");
 }
@@ -149,7 +174,6 @@ bool DipoleVisualizer::isVAOValid(unsigned int vao) const {
 }
 
 void DipoleVisualizer::render(const glm::mat4& view, const glm::mat4& projection, Shader& shader) {
-
     GLenum err;
     while ((err = glGetError()) != GL_NO_ERROR) {
         std::cerr << "OpenGL error in render: " << err << std::endl;
@@ -166,8 +190,7 @@ void DipoleVisualizer::render(const glm::mat4& view, const glm::mat4& projection
     shader.set_mat4("projection", projection);
     shader.set_mat4("model", model);
 
-    // Render sphere
-    shader.set_vec4("color", m_faceColor);
+    // Render sphere with vertex colors
     if (isVAOValid(sphere_VAO)) {
         glBindVertexArray(sphere_VAO);
         checkGLError("After binding sphere_VAO");
@@ -181,7 +204,7 @@ void DipoleVisualizer::render(const glm::mat4& view, const glm::mat4& projection
         glBindVertexArray(0);
     }
 
-    // Render arrow
+    // Render arrow with uniform color
     shader.set_vec4("color", m_edgeColor);
     if (isVAOValid(arrow_VAO)) {
         glBindVertexArray(arrow_VAO);

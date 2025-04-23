@@ -340,7 +340,7 @@ int main()
             saved_camera_position = main_camera.getWorldPosition();
             saved_camera_rotation = main_camera.getWorldRotation();
         }
-		// Rotate camera in perspective mode
+        // Rotate camera in perspective mode
         else if (is_perspective && is_dragging && !ImGui::GetIO().WantCaptureMouse && selected_dipole_index == -1 && drag_mode != DragMode::CameraDrag)
         {
             double mouse_x, mouse_y;
@@ -695,7 +695,8 @@ int main()
             );
             dipole_visualizers.emplace_back(
                 0.04f, 0.15f, &dipoles.back(),
-                glm::vec4(1.0f, 1.0f, 0.0f, 1.0f),
+                glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+                glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
             );
             dipole_visualizers.back().initialize();

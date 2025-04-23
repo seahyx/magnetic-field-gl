@@ -134,14 +134,18 @@ void main() {
 const char* cuboid_vert = R"(
 #version 330 core
 layout (location = 0) in vec3 pos;
+layout (location = 1) in vec4 in_color;
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+out vec4 vertex_color; // Pass color to fragment shader
+
 void main()
 {
     gl_Position = projection * view * model * vec4(pos, 1.0);
+    vertex_color = in_color;
 }
 )";
 
@@ -149,11 +153,17 @@ const char* cuboid_frag = R"(
 #version 330 core
 out vec4 frag_color;
 
-uniform vec4 color;
+in vec4 vertex_color; // Color from vertex shader
+uniform vec4 color; // Fallback uniform color
 
 void main()
 {
-    frag_color = color;
+    // Use vertex color if available (non-zero), otherwise use uniform color
+    if (vertex_color.a > 0.0) {
+        frag_color = vertex_color;
+    } else {
+        frag_color = color;
+    }
 }
 )";
 
