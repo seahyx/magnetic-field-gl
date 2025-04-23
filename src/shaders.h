@@ -181,6 +181,7 @@ in vec3 field;
 out vec4 frag_color;
 
 uniform int use_color; // 0 for white, 1 for colored
+uniform float sensitivity_scaled;
 
 float hue2rgb(float f1, float f2, float hue) {
     if (hue < 0.0)
@@ -226,7 +227,7 @@ void main()
     if (use_color == 1) {
         // Existing color mapping (blue for weak, red for strong)
         float field_str_len = length(field);
-        float normalized_field = min(field_str_len * 0.000001, 1.0);
+        float normalized_field = min(field_str_len * 0.000001 * sensitivity_scaled, 1.0);
         vec3 col = hsl2rgb((1.0 - normalized_field) * (300.0 / 360.0), 1.0, min(normalized_field * 2.0, 0.5));
         frag_color = vec4(col, 1.0f);
     } else {

@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <deque>
+#include <random>
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_opengl3.h>
@@ -33,6 +35,21 @@
 constexpr auto PI = 3.141529;
 constexpr auto PIXELS_PER_METER = 100.0f;
 
+// Magnetic dipole struct to be used in UBO, matches struct in shader.frag
+struct MagneticDipoleGL {
+    glm::vec3 position;  // 12 bytes
+    float padding1;      // 4 bytes padding to 16 bytes
+    glm::vec3 direction; // 12 bytes
+    float moment;        // 4 bytes supposed to be padding but this works for some reason idk why don't fkin ask
+};
+
+// Struct to store dipole state for history
+struct DipoleState {
+    glm::vec3 position;
+    glm::quat rotation;
+    float moment;
+};
+
 // Window settings
 int screen_width{ 1080 };              // Default window width
 int screen_height{ 1080 };             // Default window height
@@ -51,6 +68,7 @@ constexpr float max_zoom = 20.0f;      // Maximum zoom distance
 Camera main_camera = Camera(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f), nearPlane, farPlane); // Main camera
 glm::vec3 saved_camera_position = main_camera.getWorldPosition(); // Saved camera position for perspective toggle
 glm::quat saved_camera_rotation = main_camera.getWorldRotation(); // Saved camera rotation for perspective toggle
+glm::vec3 look_at_point = glm::vec3(0.0f); // Camera look-at point (center of rotation)
 
 // Cuboid settings
 constexpr float cuboid_width = 4.0f;   // Cuboid width
@@ -66,8 +84,17 @@ float field_plane_z = 0.0f;            // Z-position in [-1, 1]
 float field_plane_opacity = 0.5f;      // Opacity in [0, 1]
 float field_plane_sensitivity = 1.0f;  // Sensitivity, to be multiplied to a power of 10
 
+// Label settings
+bool show_labels = true; // Added for label visibility toggle
+bool show_labels_on_hover = false; // Added for hover-based label display
+
+// Simulation settings
+bool simulate = false; // Whether simulation is running
+float simulation_speed = 1.0f; // Simulation time speed (seconds)
+bool reverse_time = false; // Whether to run simulation backward
+
 // Enum for dipole dragging modes
-enum class DragMode { None, Move, Rotate };
+enum class DragMode { None, Move, Rotate, CameraDrag }; // Added CameraDrag
 
 // Magnetic field line tracing settings
 float trace_step_size = 0.01f; // Fixed step size in pixels
@@ -87,23 +114,8 @@ bool is_dragging{ false };             // Flag indicating if mouse is dragging
 bool is_perspective{ true };           // Flag for perspective vs orthographic mode
 glm::dvec2 last_mouse_pos = glm::dvec2(0.0); // Last mouse position for dragging
 
-// Potentially unused variables (to be verified)
-glm::dvec2 sel_pos = glm::dvec2(0.0);  // Selection position (unused in current code)
-float angle{ 0.0f };                   // Angle (unused in current code)
-
-// Magnetic dipole struct to be used in UBO, matches struct in shader.frag
-struct MagneticDipoleGL {
-    glm::vec3 position;  // 12 bytes
-    float padding1;      // 4 bytes padding to 16 bytes
-    glm::vec3 direction; // 12 bytes
-    float moment;        // 4 bytes supposed to be padding but this works for some reason idk why don't fkin ask
-};
-
-
 // Errors and shit
-
 bool UBO_error_flagged = false;
-
 
 /* Window resize callback function prototype */
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);

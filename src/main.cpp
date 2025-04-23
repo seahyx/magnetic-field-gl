@@ -1,5 +1,4 @@
-#include "main.h"
-#include <glm/gtx/string_cast.hpp>
+﻿#include "main.h"
 
 void checkGLError(const std::string& context) {
     GLenum err;
@@ -59,7 +58,7 @@ int main()
     // Initialize camera
     aspect_ratio = (float)screen_width / screen_height;
     main_camera.setPerspective(default_fov, aspect_ratio);
-    main_camera.lookAt(glm::vec3(0.0f));
+    main_camera.lookAt(look_at_point); // Use look_at_point
 
     // Initialize cuboid
     cuboid_height = cuboid_width / aspect_ratio;
@@ -152,6 +151,7 @@ int main()
     bool last_is_perspective = true;
     float moment = 0.1f;
     float current_pitch = 0.0f;
+    float prev_pitch = 0.0f;
     bool use_field_line_color = true;
     bool last_trace_use_adaptive_step = trace_use_adaptive_step;
     bool last_render_field_lines = render_field_lines;
@@ -162,6 +162,19 @@ int main()
     glm::dvec2 drag_start_mouse_pos;
     glm::vec3 drag_start_position;
     glm::quat drag_start_rotation;
+
+    // Simulation variables
+    std::vector<glm::vec3> velocities(dipoles.size(), glm::vec3(0.0f)); // Linear velocities
+    std::vector<glm::vec3> angular_velocities(dipoles.size(), glm::vec3(0.0f)); // Angular velocities
+    bool step_forward = false;
+    const float dipole_mass = 1.0f; // Mass of each dipole (kg)
+    const float moment_of_inertia = 0.1f; // Moment of inertia (kg·m²)
+    const float force_clamp = 100.0f; // Max force magnitude (N)
+    const float torque_clamp = 10.0f; // Max torque magnitude (N·m)
+
+    // Random number generator for dipole randomization
+    std::random_device rd;
+    std::mt19937 gen(rd());
 
     // Enable depth testing and blending
     glEnable(GL_DEPTH_TEST);
@@ -188,14 +201,18 @@ int main()
             {
                 main_camera.setWorldPosition(saved_camera_position);
                 main_camera.setWorldRotation(saved_camera_rotation);
-                main_camera.lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
+                main_camera.setPerspective(fov, aspect_ratio);
+                main_camera.lookAt(look_at_point);
             }
             else
             {
                 saved_camera_position = main_camera.getWorldPosition();
                 saved_camera_rotation = main_camera.getWorldRotation();
                 main_camera.setWorldPosition(glm::vec3(0.0f, 0.0f, 5.0f));
-                main_camera.lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
+                main_camera.setWorldRotation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+                float ortho_size = cuboid_height / 2.0f;
+                main_camera.setOrthographic(ortho_size, aspect_ratio);
+                main_camera.lookAt(glm::vec3(0.0f)); // Ortho always look at the same location
                 current_pitch = 0.0f;
             }
             last_is_perspective = is_perspective;
@@ -227,17 +244,15 @@ int main()
             last_field_plane_z = field_plane_z;
         }
 
-
         // Field plane disappearing fix
-        // Fixes whatever the shit that sometimes breaks when you move a dipole like wtf even
         glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(field_plane.vertices), field_plane.vertices, GL_STATIC_DRAW);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(field_plane.indices), field_plane.indices, GL_STATIC_DRAW);
         glBindVertexArray(0); // Unbind VAO for safety
 
-        // Handle dipole dragging
-        if (selected_dipole_index >= 0 && drag_mode != DragMode::None)
+        // Handle dipole dragging and camera dragging
+        if (selected_dipole_index >= 0 && (drag_mode == DragMode::Move || drag_mode == DragMode::Rotate))
         {
             double mouse_x, mouse_y;
             glfwGetCursorPos(window, &mouse_x, &mouse_y);
@@ -249,22 +264,42 @@ int main()
                     (2.0f * mouse_x) / screen_width - 1.0f,
                     1.0f - (2.0f * mouse_y) / screen_height
                 );
-                glm::vec4 ray_clip = glm::vec4(normalized_coords.x, normalized_coords.y, -1.0f, 1.0f);
-                glm::vec4 ray_eye = glm::inverse(main_camera.getProjectionMatrix()) * ray_clip;
-                ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
-                glm::vec3 ray_world = glm::normalize(glm::vec3(glm::inverse(main_camera.getViewMatrix()) * ray_eye));
-                glm::vec3 ray_origin = main_camera.getWorldPosition();
 
-                glm::vec3 dipole_pos = dipoles[selected_dipole_index].getWorldPosition();
-                glm::vec3 plane_normal = main_camera.getForward();
-                float plane_d = -glm::dot(dipole_pos, plane_normal);
+                glm::vec3 new_pos;
+                if (is_perspective)
+                {
+                    glm::vec4 ray_clip = glm::vec4(normalized_coords.x, normalized_coords.y, -1.0f, 1.0f);
+                    glm::vec4 ray_eye = glm::inverse(main_camera.getProjectionMatrix()) * ray_clip;
+                    ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
+                    glm::vec3 ray_world = glm::normalize(glm::vec3(glm::inverse(main_camera.getViewMatrix()) * ray_eye));
+                    glm::vec3 ray_origin = main_camera.getWorldPosition();
 
-                float t = -(glm::dot(ray_origin, plane_normal) + plane_d) / glm::dot(ray_world, plane_normal);
-                if (t > 0) {
-                    glm::vec3 new_pos = ray_origin + t * ray_world;
-                    dipoles[selected_dipole_index].setWorldPosition(new_pos);
-                    field_lines_dirty = true;
+                    glm::vec3 dipole_pos = dipoles[selected_dipole_index].getWorldPosition();
+                    glm::vec3 plane_normal = main_camera.getForward();
+                    float plane_d = -glm::dot(dipole_pos, plane_normal);
+
+                    float t = -(glm::dot(ray_origin, plane_normal) + plane_d) / glm::dot(ray_world, plane_normal);
+                    if (t > 0) {
+                        new_pos = ray_origin + t * ray_world;
+                    }
+                    else {
+                        new_pos = dipole_pos; // No intersection, keep position
+                    }
                 }
+                else
+                {
+                    float ortho_height = cuboid_height / 2.0f;
+                    float ortho_width = ortho_height * aspect_ratio;
+                    glm::vec3 right = main_camera.getRight();
+                    glm::vec3 up = main_camera.getUp();
+                    glm::vec3 dipole_pos = dipoles[selected_dipole_index].getWorldPosition();
+                    glm::vec3 center = main_camera.getWorldPosition() + main_camera.getForward() * 5.0f;
+                    glm::vec3 view_plane_pos = center + right * normalized_coords.x * ortho_width + up * normalized_coords.y * ortho_height;
+                    new_pos = glm::vec3(view_plane_pos.x, view_plane_pos.y, dipole_pos.z);
+                }
+
+                dipoles[selected_dipole_index].setWorldPosition(new_pos);
+                field_lines_dirty = true;
             }
             else if (drag_mode == DragMode::Rotate)
             {
@@ -283,7 +318,30 @@ int main()
                 drag_start_mouse_pos = current_mouse_pos;
             }
         }
-        else if (is_perspective && is_dragging && !ImGui::GetIO().WantCaptureMouse && selected_dipole_index == -1)
+        // Move the camera
+        else if (drag_mode == DragMode::CameraDrag && is_dragging && !ImGui::GetIO().WantCaptureMouse)
+        {
+            double mouse_x, mouse_y;
+            glfwGetCursorPos(window, &mouse_x, &mouse_y);
+            glm::dvec2 current_mouse_pos(mouse_x, screen_height - mouse_y);
+            glm::dvec2 delta = current_mouse_pos - last_mouse_pos;
+            last_mouse_pos = current_mouse_pos;
+
+            // Translate camera and look-at point in the view plane
+            float pan_sensitivity = cuboid_height * 0.002f;
+            glm::vec3 right = main_camera.getRight();
+            glm::vec3 up = main_camera.getUp();
+            glm::vec3 translation = -right * (float)delta.x * pan_sensitivity - up * (float)delta.y * pan_sensitivity;
+
+            glm::vec3 current_pos = main_camera.getWorldPosition();
+            look_at_point += translation;
+            main_camera.setWorldPosition(current_pos + translation);
+            main_camera.lookAt(look_at_point);
+            saved_camera_position = main_camera.getWorldPosition();
+            saved_camera_rotation = main_camera.getWorldRotation();
+        }
+		// Rotate camera in perspective mode
+        else if (is_perspective && is_dragging && !ImGui::GetIO().WantCaptureMouse && selected_dipole_index == -1 && drag_mode != DragMode::CameraDrag)
         {
             double mouse_x, mouse_y;
             glfwGetCursorPos(window, &mouse_x, &mouse_y);
@@ -294,23 +352,109 @@ int main()
             float yaw = delta.x * sensitivity * delta_time;
             float pitch = delta.y * sensitivity * delta_time;
 
-            static float prev_pitch = current_pitch;
+            prev_pitch = current_pitch;
             current_pitch -= pitch;
             current_pitch = std::max(std::min(current_pitch, 89.0f), -89.0f);
             float pitch_delta = prev_pitch - current_pitch;
             prev_pitch = current_pitch;
 
-            main_camera.rotateAround(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), -yaw);
+            main_camera.rotateAround(look_at_point, glm::vec3(0.0f, 1.0f, 0.0f), -yaw);
             glm::vec3 right_axis = main_camera.getRight();
-            main_camera.rotateAround(glm::vec3(0.0f, 0.0f, 0.0f), right_axis, pitch_delta);
-            main_camera.lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
+            main_camera.rotateAround(look_at_point, right_axis, pitch_delta);
+            main_camera.lookAt(look_at_point);
             saved_camera_position = main_camera.getWorldPosition();
             saved_camera_rotation = main_camera.getWorldRotation();
         }
 
+        // Simulation step
+        if (simulate || step_forward) {
+            // Store current state for history
+            std::vector<DipoleState> current_state;
+            for (const auto& dipole : dipoles) {
+                DipoleState state;
+                state.position = dipole.getWorldPosition();
+                state.rotation = dipole.getWorldRotation();
+                state.moment = dipole.getMoment();
+                current_state.push_back(state);
+            }
+
+            // Calculate forces and torques
+            std::vector<glm::vec3> forces(dipoles.size(), glm::vec3(0.0f));
+            std::vector<glm::vec3> torques(dipoles.size(), glm::vec3(0.0f));
+            const float h = 0.001f; // Small step for numerical gradient
+            for (size_t i = 0; i < dipoles.size(); ++i) {
+                glm::vec3 pos_i = dipoles[i].getWorldPosition();
+                glm::vec3 m_i = dipoles[i].getMoment() * dipoles[i].getDirection();
+
+                // Calculate total field at dipole i from all other dipoles
+                glm::vec3 B_i(0.0f);
+                for (size_t j = 0; j < dipoles.size(); ++j) {
+                    if (i != j) {
+                        B_i += dipoles[j].calculateMagneticField(pos_i);
+                    }
+                }
+
+                // Torque: τ = m_i × B_i
+                torques[i] = glm::cross(m_i, B_i);
+                torques[i] = glm::clamp(torques[i], -torque_clamp, torque_clamp);
+
+                // Force: F_i = ∇(m_i · B)
+                glm::vec3 force(0.0f);
+                for (size_t j = 0; j < dipoles.size(); ++j) {
+                    if (i != j) {
+                        // Numerical gradient of potential energy U = m_i · B_j
+                        glm::vec3 B_xp = dipoles[j].calculateMagneticField(pos_i + glm::vec3(h, 0, 0));
+                        glm::vec3 B_xm = dipoles[j].calculateMagneticField(pos_i - glm::vec3(h, 0, 0));
+                        glm::vec3 B_yp = dipoles[j].calculateMagneticField(pos_i + glm::vec3(0, h, 0));
+                        glm::vec3 B_ym = dipoles[j].calculateMagneticField(pos_i - glm::vec3(0, h, 0));
+                        glm::vec3 B_zp = dipoles[j].calculateMagneticField(pos_i + glm::vec3(0, 0, h));
+                        glm::vec3 B_zm = dipoles[j].calculateMagneticField(pos_i - glm::vec3(0, 0, h));
+
+                        glm::vec3 grad_U;
+                        grad_U.x = (glm::dot(m_i, B_xp) - glm::dot(m_i, B_xm)) / (2.0f * h);
+                        grad_U.y = (glm::dot(m_i, B_yp) - glm::dot(m_i, B_ym)) / (2.0f * h);
+                        grad_U.z = (glm::dot(m_i, B_zp) - glm::dot(m_i, B_zm)) / (2.0f * h);
+
+                        force += grad_U;
+                    }
+                }
+                forces[i] = glm::clamp(force, -force_clamp, force_clamp);
+            }
+
+            // Update positions and rotations
+            float dt = reverse_time ? -simulation_speed : simulation_speed;
+            dt *= delta_time * 0.1f;
+            for (size_t i = 0; i < dipoles.size(); ++i) {
+                // Update linear velocity and position
+                velocities[i] += (forces[i] / dipole_mass) * static_cast<float>(delta_time);
+                glm::vec3 new_pos = dipoles[i].getWorldPosition() + velocities[i] * dt;
+
+                // Clamp position to cuboid bounds
+                new_pos.x = glm::clamp(new_pos.x, -cuboid_width / 2.0f, cuboid_width / 2.0f);
+                new_pos.y = glm::clamp(new_pos.y, -cuboid_height / 2.0f, cuboid_height / 2.0f);
+                new_pos.z = glm::clamp(new_pos.z, -cuboid_depth / 2.0f, cuboid_depth / 2.0f);
+                dipoles[i].setWorldPosition(new_pos);
+
+                // Update angular velocity and rotation
+                angular_velocities[i] += (torques[i] / moment_of_inertia) * static_cast<float>(delta_time);
+                glm::quat w_dt = glm::quat(0.0f, angular_velocities[i] * dt * 0.5f);
+                glm::quat current_rot = dipoles[i].getWorldRotation();
+                glm::quat new_rot = current_rot + w_dt * current_rot;
+                new_rot = glm::normalize(new_rot);
+                dipoles[i].setWorldRotation(new_rot);
+            }
+
+            field_lines_dirty = true; // Mark field lines for update
+        }
+
+        // Handle step forward
+        if (step_forward) {
+            step_forward = false;
+        }
+
         // Update field lines if necessary
         if (field_lines_dirty || last_trace_use_adaptive_step != trace_use_adaptive_step || last_render_field_lines != render_field_lines) {
-			std::cout << "Rendering field lines..." << std::endl;
+            std::cout << "Rendering field lines..." << std::endl;
             if (render_field_lines) {
                 magnets.clear();
                 for (auto& dipole : dipoles) {
@@ -366,6 +510,7 @@ int main()
             field_line_shader.set_mat4("view", main_camera.getViewMatrix());
             field_line_shader.set_mat4("projection", main_camera.getProjectionMatrix());
             field_line_shader.set_mat4("model", glm::mat4(1.0f));
+            field_line_shader.set_float("sensitivity_scaled", powf(10, field_plane_sensitivity - 1));
             field_line_shader.set_int("use_color", use_field_line_color ? 1 : 0);
             glBindVertexArray(field_line_VAO);
             glDrawElements(GL_LINES, field_line_indices.size(), GL_UNSIGNED_INT, 0);
@@ -391,11 +536,106 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        // Detect hovered dipole for label display
+        int hovered_dipole_index = -1;
+        if (!ImGui::GetIO().WantCaptureMouse && show_labels && show_labels_on_hover) {
+            double mouse_x, mouse_y;
+            glfwGetCursorPos(window, &mouse_x, &mouse_y);
+            glm::vec2 normalized_coords = glm::vec2(
+                (2.0f * mouse_x) / screen_width - 1.0f,
+                1.0f - (2.0f * mouse_y) / screen_height
+            );
+
+            glm::vec3 ray_origin, ray_direction;
+            if (is_perspective) {
+                glm::vec4 ray_clip = glm::vec4(normalized_coords.x, normalized_coords.y, -1.0f, 1.0f);
+                glm::vec4 ray_eye = glm::inverse(main_camera.getProjectionMatrix()) * ray_clip;
+                ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
+                ray_direction = glm::normalize(glm::vec3(glm::inverse(main_camera.getViewMatrix()) * ray_eye));
+                ray_origin = main_camera.getWorldPosition();
+            }
+            else {
+                float ortho_height = cuboid_height / 2.0f;
+                float ortho_width = ortho_height * aspect_ratio;
+                glm::vec3 right = main_camera.getRight();
+                glm::vec3 up = main_camera.getUp();
+                glm::vec3 center = main_camera.getWorldPosition() + main_camera.getForward() * 5.0f;
+                ray_origin = center + right * normalized_coords.x * ortho_width + up * normalized_coords.y * ortho_height;
+                ray_direction = -main_camera.getForward();
+            }
+
+            float closest_dist = std::numeric_limits<float>::max();
+            const float sphere_radius = 0.04f; // From DipoleVisualizer
+            for (size_t i = 0; i < dipoles.size(); ++i) {
+                glm::vec3 dipole_pos = dipoles[i].getWorldPosition();
+                float dist;
+                if (glm::intersectRaySphere(ray_origin, ray_direction, dipole_pos, sphere_radius * sphere_radius, dist)) {
+                    if (dist < closest_dist) {
+                        closest_dist = dist;
+                        hovered_dipole_index = i;
+                    }
+                }
+            }
+        }
+
+        // Render dipole labels
+        if (show_labels) {
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.5f)); // Semi-transparent black background
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f); // No border
+            for (size_t i = 0; i < dipoles.size(); ++i) {
+                if (show_labels_on_hover && static_cast<int>(i) != hovered_dipole_index) {
+                    continue;
+                }
+
+                glm::vec3 dipole_pos = dipoles[i].getWorldPosition();
+                glm::mat4 view = main_camera.getViewMatrix();
+                glm::mat4 proj = main_camera.getProjectionMatrix();
+                glm::vec4 clip_pos = proj * view * glm::vec4(dipole_pos, 1.0f);
+                if (clip_pos.w <= 0.0f) continue; // Behind camera, skip
+
+                glm::vec3 ndc = glm::vec3(clip_pos) / clip_pos.w;
+                if (ndc.z < -1.0f || ndc.z > 1.0f) continue; // Outside depth range, skip
+                if (ndc.x < -1.0f || ndc.x > 1.0f || ndc.y < -1.0f || ndc.y > 1.0f) continue; // Outside viewport, skip
+
+                glm::vec2 screen_pos = glm::vec2(
+                    (ndc.x + 1.0f) * 0.5f * screen_width,
+                    (1.0f - ndc.y) * 0.5f * screen_height
+                );
+
+                const float offset_x = 10.0f;
+                const float offset_y = 10.0f;
+                screen_pos.x += offset_x;
+                screen_pos.y += offset_y;
+
+                ImGui::SetNextWindowPos(ImVec2(screen_pos.x, screen_pos.y), ImGuiCond_Always);
+                ImGui::Begin(("DipoleLabel" + std::to_string(i)).c_str(), nullptr,
+                    ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize);
+
+                ImGui::Text("%d", i + 1);
+                ImGui::End();
+            }
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor();
+        }
+
         ImGui::Begin("Magnetic Field Visualiser");
+        ImGui::Text("Drag Anywhere - Rotate\nScroll - Zoom\nCTRL + Drag - Move Object or Pan Camera\nALT + Drag - Rotate Object\nESC - Exit");
+        ImGui::Separator();
         ImGui::Text("Camera Settings");
         ImGui::Text("FPS: %.1f", 1.0f / delta_time);
         ImGui::SliderFloat("FOV", &fov, 30.0f, 120.0f, "%.1f");
         ImGui::Checkbox("Perspective Mode", &is_perspective);
+        if (ImGui::Button("Reset Camera")) {
+            main_camera.setWorldPosition(glm::vec3(0.0f, 0.0f, 5.0f));
+            main_camera.setWorldRotation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+            look_at_point = glm::vec3(0.0f);
+            main_camera.lookAt(look_at_point);
+            saved_camera_position = main_camera.getWorldPosition();
+            saved_camera_rotation = main_camera.getWorldRotation();
+            current_pitch = 0.0f;
+            prev_pitch = 0.0f; // Reset prev_pitch to prevent snap
+        }
 
         ImGui::Separator();
         ImGui::Text("Field Plane Settings");
@@ -419,13 +659,34 @@ int main()
                 trace_use_adaptive_step, render_field_lines);
             field_lines_dirty = true;
         }
+        ImGui::SameLine();
         if (ImGui::Button("Retrace Field Lines")) {
             field_lines_dirty = true;
         }
-
         ImGui::Separator();
-        ImGui::Text("Dipole Management");
 
+        ImGui::Text("Simulation Settings");
+        ImGui::SliderFloat("Simulation Speed", &simulation_speed, 0.01f, 10.0f, "%.2f");
+        if (!simulate) {
+            if (ImGui::Button("Start Simulation")) {
+                simulate = true;
+                velocities.assign(dipoles.size(), glm::vec3(0.0f));
+                angular_velocities.assign(dipoles.size(), glm::vec3(0.0f));
+            }
+        }
+        else {
+            if (ImGui::Button("Stop Simulation")) {
+                simulate = false;
+            }
+        }
+        ImGui::SameLine();
+        ImGui::Checkbox("Reverse Time", &reverse_time);
+        if (ImGui::Button("Step Forward")) {
+            step_forward = true;
+        }
+        ImGui::End();
+
+        ImGui::Begin("Object List");
         if (ImGui::Button("Add Dipole")) {
             dipoles.emplace_back(
                 glm::vec3(0.0f, 0.0f, 0.0f),
@@ -438,8 +699,40 @@ int main()
                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
             );
             dipole_visualizers.back().initialize();
+            velocities.push_back(glm::vec3(0.0f));
+            angular_velocities.push_back(glm::vec3(0.0f));
             field_lines_dirty = true;
         }
+        if (ImGui::Button("Randomize Dipoles")) {
+            std::uniform_real_distribution<float> dist_pos_x(-cuboid_width / 2.0f, cuboid_width / 2.0f);
+            std::uniform_real_distribution<float> dist_pos_y(-cuboid_height / 2.0f, cuboid_height / 2.0f);
+            std::uniform_real_distribution<float> dist_pos_z(-cuboid_depth / 2.0f, cuboid_depth / 2.0f);
+            std::uniform_real_distribution<float> dist_rot(0.0f, 1.0f);
+
+            for (auto& dipole : dipoles) {
+                // Random position
+                glm::vec3 new_pos(dist_pos_x(gen), dist_pos_y(gen), dist_pos_z(gen));
+                dipole.setWorldPosition(new_pos);
+
+                // Random rotation (uniform quaternion)
+                float u1 = dist_rot(gen);
+                float u2 = dist_rot(gen);
+                float u3 = dist_rot(gen);
+                float sqrt_u1 = std::sqrt(u1);
+                float sqrt_1_u1 = std::sqrt(1.0f - u1);
+                glm::quat random_rot(
+                    sqrt_1_u1 * std::sin(2.0f * PI * u2),
+                    sqrt_1_u1 * std::cos(2.0f * PI * u2),
+                    sqrt_u1 * std::sin(2.0f * PI * u3),
+                    sqrt_u1 * std::cos(2.0f * PI * u3)
+                );
+                dipole.setWorldRotation(random_rot);
+            }
+            field_lines_dirty = true;
+        }
+
+        ImGui::Checkbox("Show Labels", &show_labels);
+        ImGui::Checkbox("Show Labels on Hover", &show_labels_on_hover);
 
         for (size_t i = 0; i < dipoles.size(); ++i) {
             ImGui::PushID(i);
@@ -470,15 +763,17 @@ int main()
                     std::cerr << "Error: dipoles and dipole_visualizers sizes mismatch!" << std::endl;
                 }
                 else {
-                    std::cout << "Removing dipole " << i << ": pos=" << glm::to_string(dipoles[i].getWorldPosition())
-                        << ", moment=" << dipoles[i].getMoment() << std::endl;
                     if (i < dipoles.size() - 1) {
                         std::swap(dipoles[i], dipoles.back());
                         std::swap(dipole_visualizers[i], dipole_visualizers.back());
                         dipole_visualizers[i].setParent(&dipoles[i]);
+                        std::swap(velocities[i], velocities.back());
+                        std::swap(angular_velocities[i], angular_velocities.back());
                     }
                     dipoles.pop_back();
                     dipole_visualizers.pop_back();
+                    velocities.pop_back();
+                    angular_velocities.pop_back();
                     glBindBuffer(GL_UNIFORM_BUFFER, 0);
                     glBindVertexArray(0);
                     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -557,22 +852,18 @@ void scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
     if (is_perspective && !ImGui::GetIO().WantCaptureMouse)
     {
-        // Calculate zoom delta
-        float zoom_delta = -yoffset * zoom_speed; // Negative because scrolling up (positive yoffset) zooms in
+        float zoom_delta = -yoffset * zoom_speed;
         glm::vec3 current_pos = main_camera.getWorldPosition();
-        float distance = glm::length(current_pos); // Distance from origin (0, 0, 0)
+        float distance = glm::length(current_pos - look_at_point);
         float new_distance = distance + zoom_delta;
 
-        // Clamp distance
         new_distance = std::max(std::min(new_distance, max_zoom), min_zoom);
 
-        // Scale position to new distance
-        glm::vec3 direction = glm::normalize(current_pos);
-        glm::vec3 new_pos = direction * new_distance;
+        glm::vec3 direction = glm::normalize(current_pos - look_at_point);
+        glm::vec3 new_pos = look_at_point + direction * new_distance;
         main_camera.setWorldPosition(new_pos);
-        main_camera.lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
+        main_camera.lookAt(look_at_point);
 
-        // Update saved position
         saved_camera_position = new_pos;
     }
 }
@@ -599,11 +890,26 @@ void processInput(GLFWwindow* window, int& selected_dipole_index, DragMode& drag
                 (2.0f * mouse_x) / screen_width - 1.0f,
                 1.0f - (2.0f * mouse_y) / screen_height
             );
-            glm::vec4 ray_clip = glm::vec4(normalized_coords.x, normalized_coords.y, -1.0f, 1.0f);
-            glm::vec4 ray_eye = glm::inverse(main_camera.getProjectionMatrix()) * ray_clip;
-            ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
-            glm::vec3 ray_world = glm::normalize(glm::vec3(glm::inverse(main_camera.getViewMatrix()) * ray_eye));
-            glm::vec3 ray_origin = main_camera.getWorldPosition();
+
+            glm::vec3 ray_origin, ray_direction;
+            if (is_perspective)
+            {
+                glm::vec4 ray_clip = glm::vec4(normalized_coords.x, normalized_coords.y, -1.0f, 1.0f);
+                glm::vec4 ray_eye = glm::inverse(main_camera.getProjectionMatrix()) * ray_clip;
+                ray_eye = glm::vec4(ray_eye.x, ray_eye.y, -1.0f, 0.0f);
+                ray_direction = glm::normalize(glm::vec3(glm::inverse(main_camera.getViewMatrix()) * ray_eye));
+                ray_origin = main_camera.getWorldPosition();
+            }
+            else
+            {
+                float ortho_height = cuboid_height / 2.0f;
+                float ortho_width = ortho_height * aspect_ratio;
+                glm::vec3 right = main_camera.getRight();
+                glm::vec3 up = main_camera.getUp();
+                glm::vec3 center = main_camera.getWorldPosition() + main_camera.getForward() * 5.0f;
+                ray_origin = center + right * normalized_coords.x * ortho_width + up * normalized_coords.y * ortho_height;
+                ray_direction = -main_camera.getForward();
+            }
 
             selected_dipole_index = -1;
             float closest_dist = std::numeric_limits<float>::max();
@@ -613,7 +919,7 @@ void processInput(GLFWwindow* window, int& selected_dipole_index, DragMode& drag
             {
                 glm::vec3 dipole_pos = dipoles[i].getWorldPosition();
                 float dist;
-                if (glm::intersectRaySphere(ray_origin, ray_world, dipole_pos, sphere_radius * sphere_radius, dist))
+                if (glm::intersectRaySphere(ray_origin, ray_direction, dipole_pos, sphere_radius * sphere_radius, dist))
                 {
                     if (dist < closest_dist)
                     {
@@ -623,6 +929,7 @@ void processInput(GLFWwindow* window, int& selected_dipole_index, DragMode& drag
                 }
             }
 
+            // Dragging a dipole
             if (selected_dipole_index >= 0)
             {
                 if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
@@ -640,6 +947,17 @@ void processInput(GLFWwindow* window, int& selected_dipole_index, DragMode& drag
                     drag_mode = DragMode::None;
                     selected_dipole_index = -1;
                 }
+            }
+            // Draggin the camera
+            else if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+            {
+                drag_mode = DragMode::CameraDrag;
+                selected_dipole_index = -1;
+            }
+            else
+            {
+                drag_mode = DragMode::None;
+                selected_dipole_index = -1;
             }
         }
     }
@@ -678,25 +996,14 @@ void updateDeltaTime()
 /* Cuboid dimension updater function */
 void updateCuboidDimensions(Cuboid& cuboid, FieldPlane& field_plane, float cuboid_height, unsigned int field_VAO, unsigned int field_VBO, unsigned int field_EBO, unsigned int cuboid_VAO, unsigned int cuboid_VBO, unsigned int cuboid_EBO)
 {
-    // Update cuboid geometry
     cuboid.updateDimensions(cuboid_width, cuboid_height, cuboid_depth);
-
-    // Update field plane geometry
     field_plane.updateDimensions(cuboid_width, cuboid_height, cuboid_depth);
 
-    // Update field VBO and EBO
-    /*glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(field_plane.vertices), field_plane.vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(field_plane.indices), field_plane.indices, GL_STATIC_DRAW);*/
-
-    // Update cuboid edges VBO and EBO
     glBindBuffer(GL_ARRAY_BUFFER, cuboid_VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cuboid.edge_vertices), cuboid.edge_vertices, GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cuboid_EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cuboid.edge_indices), cuboid.edge_indices, GL_STATIC_DRAW);
 
-    // Rebind VAOs and re-specify vertex attributes to ensure state consistency
     glBindVertexArray(field_VAO);
     glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
@@ -715,17 +1022,16 @@ void updateCuboidDimensions(Cuboid& cuboid, FieldPlane& field_plane, float cuboi
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-// Function to update field line geometry
+/* Function to update field line geometry */
 void updateFieldLineGeometry(const std::vector<FieldLine>& fieldLines, unsigned int& field_line_VAO, unsigned int& field_line_VBO, unsigned int& field_line_EBO, std::vector<float>& vertices, std::vector<unsigned int>& indices) {
     vertices.clear();
     indices.clear();
     unsigned int vertexOffset = 0;
 
     for (const auto& line : fieldLines) {
-        if (line.points.size() < 2) continue; // Need at least two points for a line segment
+        if (line.points.size() < 2) continue;
         for (size_t i = 0; i < line.points.size(); ++i) {
             const auto& point = line.points[i];
-            // Vertex: position (x, y, z), field (x, y, z)
             vertices.push_back(point.position.x);
             vertices.push_back(point.position.y);
             vertices.push_back(point.position.z);
@@ -733,7 +1039,6 @@ void updateFieldLineGeometry(const std::vector<FieldLine>& fieldLines, unsigned 
             vertices.push_back(point.field.y);
             vertices.push_back(point.field.z);
 
-            // Indices for line segments
             if (i < line.points.size() - 1) {
                 indices.push_back(vertexOffset + i);
                 indices.push_back(vertexOffset + i + 1);
@@ -742,20 +1047,17 @@ void updateFieldLineGeometry(const std::vector<FieldLine>& fieldLines, unsigned 
         vertexOffset += line.points.size();
     }
 
-    // Update VBO
     glBindBuffer(GL_ARRAY_BUFFER, field_line_VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
-    // Update EBO
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_line_EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // Configure VAO
     glBindVertexArray(field_line_VAO);
     glBindBuffer(GL_ARRAY_BUFFER, field_line_VBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0); // Position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float))); // Field
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_line_EBO);
     glBindVertexArray(0);
