@@ -12,6 +12,9 @@ public:
     MagneticDipole(const glm::vec3& position, float moment, Transform* parent = nullptr, float pixelsPerMeter = 100.0f);
     MagneticDipole(const glm::vec3& position, const glm::vec3& initialDirection, float moment, Transform* parent = nullptr, float pixelsPerMeter = 100.0f);
 
+    // Override Transform methods to update trace points
+    void updateWorldTransformMatrix() override;
+
     // Moment setters/getters (position and direction are handled by Transform)
     void setMoment(float moment);
     float getMoment() const;

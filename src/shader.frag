@@ -1,23 +1,24 @@
 #version 330 core
 
-uniform int pixels_per_meter;
-
-in vec4 gl_FragCoord;
+in vec3 world_pos; // Interpolated world position from vertex shader
 out vec4 frag_color;
 
-uniform mat4 view;
-uniform mat4 projection;
+uniform float pixels_per_meter;
+uniform vec2 resolution;
+uniform float plane_opacity;
 
-// Define a struct for a magnetic dipole
+// Magnetic dipole struct
 struct MagneticDipole {
     vec3 position;
     vec3 direction;
     float moment;
 };
 
-// Uniform array of magnetic dipoles
-uniform MagneticDipole dipoles[10]; // Support up to 10 dipoles
-uniform int num_dipoles;            // Number of active dipoles
+// Use UBO in a uniform array to pass in large sets of dipole data
+layout (std140) uniform DipoleBuffer {
+    MagneticDipole dipoles[1024]; // Up to 1024 dipoles
+};
+uniform int num_dipoles;
 
 float hue2rgb(float f1, float f2, float hue) {
     if (hue < 0.0)
@@ -38,19 +39,15 @@ float hue2rgb(float f1, float f2, float hue) {
 
 vec3 hsl2rgb(vec3 hsl) {
     vec3 rgb;
-
     if (hsl.y == 0.0) {
         rgb = vec3(hsl.z); // Luminance
     } else {
         float f2;
-
         if (hsl.z < 0.5)
             f2 = hsl.z * (1.0 + hsl.y);
         else
             f2 = hsl.z + hsl.y - hsl.y * hsl.z;
-
         float f1 = 2.0 * hsl.z - f2;
-
         rgb.r = hue2rgb(f1, f2, hsl.x + (1.0 / 3.0));
         rgb.g = hue2rgb(f1, f2, hsl.x);
         rgb.b = hue2rgb(f1, f2, hsl.x - (1.0 / 3.0));
@@ -101,49 +98,15 @@ vec3 calculateMagneticField(vec3 pos, MagneticDipole dipole) {
 }
 
 void main() {
-    // Convert fragment coordinate to normalized device coordinates
-    vec2 ndc = (gl_FragCoord.xy / vec2(1920, 1080)) * 2.0 - 1.0;
-    float aspect_ratio = 1920.0 / 1080.0;
-
-    // Compute world position on near plane
-    mat4 inv_view = inverse(view);
-    mat4 inv_proj = inverse(projection);
-    vec4 near_plane = inv_proj * vec4(ndc, -1.0, 1.0);
-    near_plane /= near_plane.w;
-    vec4 world_near = inv_view * near_plane;
-    
-    // Compute ray direction
-    vec3 camera_pos = (inv_view * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-    vec3 ray_dir = normalize(world_near.xyz - camera_pos);
-
-    // Cuboid bounds
-    vec3 cuboid_min = vec3(-2.0, -1.5, -1.0);
-    vec3 cuboid_max = vec3(2.0, 1.5, 1.0);
-
-    // Ray-box intersection
-    vec3 inv_dir = 1.0 / ray_dir;
-    vec3 t0 = (cuboid_min - camera_pos) * inv_dir;
-    vec3 t1 = (cuboid_max - camera_pos) * inv_dir;
-    vec3 tmin = min(t0, t1);
-    vec3 tmax = max(t0, t1);
-    float t_near = max(max(tmin.x, tmin.y), tmin.z);
-    float t_far = min(min(tmax.x, tmax.y), tmax.z);
-
+    // Calculate total magnetic field at world_pos
     vec3 field_str = vec3(0.0);
-    if (t_near < t_far && t_near >= 0.0) {
-        // Intersection point
-        vec3 pos = camera_pos + t_near * ray_dir;
-
-        // Accumulate magnetic field
-        for (int i = 0; i < num_dipoles; i++) {
-            field_str += calculateMagneticField(pos, dipoles[i]);
-        }
+    for (int i = 0; i < num_dipoles; i++) {
+        field_str += calculateMagneticField(world_pos, dipoles[i]);
     }
 
+    // Map field strength to color
     float field_str_len = length(field_str);
-    float normalized_field = min(field_str_len * 0.1, 1.0);
+    float normalized_field = min(field_str_len * 0.000001, 1.0);
     vec3 col = hsl2rgb((1.0 - normalized_field) * (300.0 / 360.0), 1.0, min(normalized_field * 2.0, 0.5));
-
-    // Make field semi-transparent
-    frag_color = vec4(col, 0.5);
+    frag_color = vec4(col, plane_opacity);
 }

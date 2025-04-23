@@ -22,6 +22,7 @@ public:
     void set_vec2(const std::string& name, glm::vec2 vec) const;
     void set_vec3(const std::string& name, glm::vec3 vec) const;
     void set_vec4(const std::string& name, glm::vec4 vec) const;
+	void set_mat4(const std::string& name, glm::mat4 mat) const;
     void set_int(const std::string& name, int value) const;
 
 private:

@@ -1,6 +1,7 @@
 #include "camera.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
+#include <iostream>
 
 Camera::Camera(const glm::vec3& position, const glm::vec3& target, float nearPlane, float farPlane, Transform* parent)
     : Transform(position, glm::vec3(0.0f), parent)
@@ -20,20 +21,24 @@ Camera::Camera(const glm::vec3& position, const glm::vec3& target, float nearPla
     lookAt(target);
 }
 
-void Camera::setPerspective(float fovY, float aspectRatio) {
-    mProjectionMode = ProjectionMode::Perspective;
+void Camera::setPerspective(float fovY, float aspectRatio, bool transition) {
+    if (!transition) {
+        mProjectionMode = ProjectionMode::Perspective;
+        mIsTransitioning = false; // Reset transition state
+        mTransitionFactor = 0.0f;
+    }
     mFovY = glm::radians(fovY); // Convert degrees to radians
     mAspectRatio = aspectRatio;
-    mIsTransitioning = false; // Reset transition state
-    mTransitionFactor = 0.0f;
 }
 
-void Camera::setOrthographic(float orthoSize, float aspectRatio) {
-    mProjectionMode = ProjectionMode::Orthographic;
+void Camera::setOrthographic(float orthoSize, float aspectRatio, bool transition) {
+    if (!transition) {
+        mProjectionMode = ProjectionMode::Orthographic;
+        mIsTransitioning = false; // Reset transition state
+        mTransitionFactor = 1.0f;
+    }
     mOrthoSize = orthoSize;
     mAspectRatio = aspectRatio;
-    mIsTransitioning = false; // Reset transition state
-    mTransitionFactor = 1.0f;
 }
 
 void Camera::setProjectionMode(ProjectionMode mode) {
@@ -64,7 +69,7 @@ void Camera::updateTransition(float deltaTime) {
     // Update transition time
     mTransitionTime += deltaTime;
     float t = mTransitionTime / mTransitionDuration;
-    t = std::clamp(t, 0.0f, 1.0f); // Normalize to [0, 1]
+    t = std::min(std::max(t, 0.0f), 1.0f); // Normalize to [0, 1]
 
     // Apply ease-out interpolation: f(t) = 1 - (1 - t)^2
     float easedT = 1.0f - (1.0f - t) * (1.0f - t);

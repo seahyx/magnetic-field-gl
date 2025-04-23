@@ -4,7 +4,7 @@
 // Constructor that uses default forward direction (0,0,-1)
 MagneticDipole::MagneticDipole(const glm::vec3& position, float moment, Transform* parent, float pixelsPerMeter)
     : Transform(position, glm::vec3(0.0f), parent) // Default rotation
-	, BaseMagnet(pixelsPerMeter)
+    , BaseMagnet(pixelsPerMeter)
     , mMoment(moment)
 {
     initializeDipoleTracePoints();
@@ -17,6 +17,11 @@ MagneticDipole::MagneticDipole(const glm::vec3& position, const glm::vec3& initi
     , mMoment(moment)
 {
     setDirection(initialDirection);
+}
+
+void MagneticDipole::updateWorldTransformMatrix()
+{
+    Transform::updateWorldTransformMatrix();
     initializeDipoleTracePoints();
 }
 
@@ -24,7 +29,7 @@ void MagneticDipole::initializeDipoleTracePoints() {
     mTraceStartPoints.clear();
 
     constexpr int NUM_POINTS = 6; // Number of points in circle
-    constexpr float RADIUS = 0.1f; // Small radius in pixels
+    float radius = 0.04f; // Small radius in meters
 
     glm::vec3 center = getWorldPosition();
     glm::vec3 up = getUp();
@@ -33,7 +38,7 @@ void MagneticDipole::initializeDipoleTracePoints() {
     // Create points in a circle perpendicular to the dipole direction
     for (int i = 0; i < NUM_POINTS; ++i) {
         float angle = i * 2.0f * glm::pi<float>() / NUM_POINTS;
-        glm::vec3 offset = (cos(angle) * right + sin(angle) * up) * RADIUS;
+        glm::vec3 offset = (cos(angle) * right + sin(angle) * up) * radius;
 
         TraceStartPoint point;
         point.position = center + offset;

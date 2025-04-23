@@ -14,8 +14,8 @@ public:
     Camera(const glm::vec3& position, const glm::vec3& target, float nearPlane = 0.1f, float farPlane = 100.0f, Transform* parent = nullptr);
 
     // Set projection mode and associated parameters
-    void setPerspective(float fovY, float aspectRatio);
-    void setOrthographic(float orthoSize, float aspectRatio);
+    void setPerspective(float fovY, float aspectRatio, bool transition = false);
+    void setOrthographic(float orthoSize, float aspectRatio, bool transition = false);
     void setProjectionMode(ProjectionMode mode);
 
     // Transition methods

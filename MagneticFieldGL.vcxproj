@@ -148,13 +148,23 @@
     <ClCompile Include="include\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="include\imgui\imgui_tables.cpp" />
     <ClCompile Include="include\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\camera.cpp" />
+    <ClCompile Include="src\cuboid.cpp" />
+    <ClCompile Include="src\dipole_visualizer.cpp" />
+    <ClCompile Include="src\field_line_tracer.cpp" />
+    <ClCompile Include="src\field_plane.cpp" />
     <ClCompile Include="src\glad.c" />
     <ClCompile Include="src\dipole.cpp" />
+    <ClCompile Include="src\magnet_bar.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\shader.cpp" />
-    <ClCompile Include="transform.cpp" />
+    <ClCompile Include="src\transform.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="src\cuboid.frag" />
+    <None Include="src\cuboid.vert" />
+    <None Include="src\field_line.frag" />
+    <None Include="src\field_line.vert" />
     <None Include="src\shader.frag" />
     <None Include="src\shader.vert" />
   </ItemGroup>
@@ -168,10 +178,17 @@
     <ClInclude Include="include\imgui\imstb_rectpack.h" />
     <ClInclude Include="include\imgui\imstb_textedit.h" />
     <ClInclude Include="include\imgui\imstb_truetype.h" />
+    <ClInclude Include="src\base_magnet.h" />
+    <ClInclude Include="src\camera.h" />
+    <ClInclude Include="src\cuboid.h" />
     <ClInclude Include="src\dipole.h" />
+    <ClInclude Include="src\dipole_visualizer.h" />
+    <ClInclude Include="src\field_line_tracer.h" />
+    <ClInclude Include="src\field_plane.h" />
+    <ClInclude Include="src\magnet_bar.h" />
     <ClInclude Include="src\main.h" />
     <ClInclude Include="src\shader.h" />
-    <ClInclude Include="transform.h" />
+    <ClInclude Include="src\transform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

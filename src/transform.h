@@ -4,9 +4,13 @@
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
+
 class Transform {
 public:
-    Transform(glm::vec3 localPosition, glm::vec3 localEulerRotation, Transform* parent);
+    Transform(glm::vec3 localPosition, glm::vec3 localEulerRotation, Transform* parent = nullptr);
+    ~Transform();
 
     void setLocalPosition(glm::vec3 localPosition);
     glm::vec3 getLocalPosition() const;
@@ -23,12 +27,10 @@ public:
     void setLocalRotationEuler(glm::vec3 localRotationEuler);
     void setWorldRotationEuler(glm::vec3 localRotationEuler);
 
-    // Rotation utility functions
     void rotateAround(const glm::vec3& worldPoint, const glm::vec3& axis, float angleDegrees);
     void rotateAxis(const glm::vec3& axis, float angleDegrees);
     void lookAt(const glm::vec3& target, const glm::vec3& worldUp = glm::vec3(0.0f, 1.0f, 0.0f));
 
-    // Transform utility functions
     void translate(const glm::vec3& offset);
     void translateLocal(const glm::vec3& localOffset);
     glm::vec3 transformDirection(const glm::vec3& direction);
@@ -39,18 +41,16 @@ public:
     void setParent(Transform* newParent);
     Transform* getParent() const;
 
-    // Child management
     void addChild(Transform* child);
     void removeChild(Transform* child);
     int getChildCount() const;
     Transform* getChild(int index);
 
-    glm::mat4 getLocalTransformMatrix() const; // Local-space transform matrix
-    glm::mat4 getWorldTransformMatrix() const; // World-space transform matrix, depends on parent world transform matrix and local transform matrix
+    glm::mat4 getLocalTransformMatrix() const;
+    glm::mat4 getWorldTransformMatrix() const;
 
-    void updateWorldTransformMatrix(); // Update the world-space transform matrix
+    virtual void updateWorldTransformMatrix();
 
-    // Get forward, right, and up vectors in world space
     glm::vec3 getForward() const;
     glm::vec3 getRight() const;
     glm::vec3 getUp() const;
@@ -59,6 +59,6 @@ private:
     glm::vec3 mLocalPosition;
     glm::quat mLocalRotation;
     Transform* parent;
-    std::vector<Transform*> mChildren;  // Changed to pointers
+    std::vector<Transform*> mChildren;
     glm::mat4 mWorldTransformMatrix;
 };
