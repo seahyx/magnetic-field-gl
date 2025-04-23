@@ -19,6 +19,15 @@
     <Filter Include="Source Files\imgui">
       <UniqueIdentifier>{b8437257-54db-4d3b-81af-927d990dfd54}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\scene">
+      <UniqueIdentifier>{ef8b96bb-cafd-4b4b-8e6a-c1118290e1a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\scene">
+      <UniqueIdentifier>{cfa60dbb-4b69-4346-88a6-779dc066f6e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader Files">
+      <UniqueIdentifier>{d0f06242-3932-45aa-ba1f-549d6c50f86a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\glad.c">
@@ -51,25 +60,52 @@
     <ClCompile Include="include\imgui\imgui.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="src\MagneticDipole.cpp">
+    <ClCompile Include="src\transform.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dipole.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\magnet_bar.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\camera.cpp">
+      <Filter>Source Files\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cuboid.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dipole_visualizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\field_plane.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\field_line_tracer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="src\cuboid.frag">
+      <Filter>Shader Files</Filter>
+    </None>
+    <None Include="src\cuboid.vert">
+      <Filter>Shader Files</Filter>
+    </None>
     <None Include="src\shader.frag">
-      <Filter>Source Files</Filter>
+      <Filter>Shader Files</Filter>
     </None>
     <None Include="src\shader.vert">
-      <Filter>Source Files</Filter>
+      <Filter>Shader Files</Filter>
+    </None>
+    <None Include="src\field_line.frag">
+      <Filter>Shader Files</Filter>
+    </None>
+    <None Include="src\field_line.vert">
+      <Filter>Shader Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\shader.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\main.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\imgui\imgui_impl_glfw.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
@@ -97,7 +133,40 @@
     <ClInclude Include="include\imgui\imgui_impl_opengl3_loader.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="src\MagneticDipole.h">
+    <ClInclude Include="src\main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\transform.h">
+      <Filter>Header Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dipole.h">
+      <Filter>Header Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\magnet_bar.h">
+      <Filter>Header Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\camera.h">
+      <Filter>Header Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\base_magnet.h">
+      <Filter>Header Files\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\cuboid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dipole_visualizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\field_plane.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\field_line_tracer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shaders.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
