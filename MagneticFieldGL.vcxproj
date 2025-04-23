@@ -188,6 +188,7 @@
     <ClInclude Include="src\magnet_bar.h" />
     <ClInclude Include="src\main.h" />
     <ClInclude Include="src\shader.h" />
+    <ClInclude Include="src\shaders.h" />
     <ClInclude Include="src\transform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

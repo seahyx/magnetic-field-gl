@@ -2,6 +2,8 @@
 in vec3 field;
 out vec4 frag_color;
 
+uniform int use_color; // 0 for white, 1 for colored
+
 float hue2rgb(float f1, float f2, float hue) {
     if (hue < 0.0)
         hue += 1.0;
@@ -43,9 +45,14 @@ vec3 hsl2rgb(float h, float s, float l) {
 
 void main()
 {
-    // Map field strength to color (blue for weak, red for strong)
-    float field_str_len = length(field);
-    float normalized_field = min(field_str_len * 0.000001, 1.0);
-    vec3 col = hsl2rgb((1.0 - normalized_field) * (300.0 / 360.0), 1.0, min(normalized_field * 2.0, 0.5));
-    frag_color = vec4(col, 1.0f);
+    if (use_color == 1) {
+        // Existing color mapping (blue for weak, red for strong)
+        float field_str_len = length(field);
+        float normalized_field = min(field_str_len * 0.000001, 1.0);
+        vec3 col = hsl2rgb((1.0 - normalized_field) * (300.0 / 360.0), 1.0, min(normalized_field * 2.0, 0.5));
+        frag_color = vec4(col, 1.0f);
+    } else {
+        // Plain white
+        frag_color = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
 }

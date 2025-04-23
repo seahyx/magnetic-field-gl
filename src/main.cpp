@@ -4,9 +4,11 @@
 void checkGLError(const std::string& context) {
     GLenum err;
     while ((err = glGetError()) != GL_NO_ERROR) {
-        if (context == "UBO update" && UBO_error_flagged) {
-            continue;
-			UBO_error_flagged = true;
+        if (context == "UBO update") {
+            if (UBO_error_flagged) {
+                continue;
+            }
+            UBO_error_flagged = true;
         }
         std::cerr << "OpenGL error in " << context << ": " << err << std::endl;
     }
@@ -105,9 +107,9 @@ int main()
     glGenBuffers(1, &field_line_EBO);
 
     // Initialize shaders
-    Shader field_shader("src/shader.vert", "src/shader.frag");
-    Shader cuboid_shader("src/cuboid.vert", "src/cuboid.frag");
-    Shader field_line_shader("src/field_line.vert", "src/field_line.frag");
+    Shader field_shader(shader_vert, shader_frag);
+    Shader cuboid_shader(cuboid_vert, cuboid_frag);
+    Shader field_line_shader(field_line_vert, field_line_frag);
 
     // Initialize UBO for dipoles
     unsigned int dipole_ubo;
@@ -150,6 +152,9 @@ int main()
     bool last_is_perspective = true;
     float moment = 0.1f;
     float current_pitch = 0.0f;
+    bool use_field_line_color = true;
+    bool last_trace_use_adaptive_step = trace_use_adaptive_step;
+    bool last_render_field_lines = render_field_lines;
 
     // Variables for dipole dragging
     int selected_dipole_index = -1; // -1 means no dipole selected
@@ -212,18 +217,23 @@ int main()
             updateCuboidDimensions(cuboid, field_plane, cuboid_height, field_VAO, field_VBO, field_EBO, cuboid_VAO, cuboid_VBO, cuboid_EBO);
             tracer.updateBounds(cuboid_width, cuboid_height, cuboid_depth);
             field_lines_dirty = true;
+            screen_changed = false;
         }
 
         // Update field plane geometry if z-position changed
         static float last_field_plane_z = field_plane_z;
         if (field_plane_z != last_field_plane_z) {
             field_plane.updateZPosition(field_plane_z, cuboid_depth);
-            glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(field_plane.vertices), field_plane.vertices, GL_STATIC_DRAW);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_EBO);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(field_plane.indices), field_plane.indices, GL_STATIC_DRAW);
             last_field_plane_z = field_plane_z;
         }
+
+        // Field plane disappearing fix
+        // Fixes whatever the shit that sometimes breaks when you move a dipole like wtf even
+        glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(field_plane.vertices), field_plane.vertices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(field_plane.indices), field_plane.indices, GL_STATIC_DRAW);
+        glBindVertexArray(0); // Unbind VAO for safety
 
         // Handle dipole dragging
         if (selected_dipole_index >= 0 && drag_mode != DragMode::None)
@@ -298,9 +308,8 @@ int main()
         }
 
         // Update field lines if necessary
-        static bool last_trace_use_adaptive_step;
-        static bool last_render_field_lines;
         if (field_lines_dirty || last_trace_use_adaptive_step != trace_use_adaptive_step || last_render_field_lines != render_field_lines) {
+			std::cout << "Rendering field lines..." << std::endl;
             if (render_field_lines) {
                 magnets.clear();
                 for (auto& dipole : dipoles) {
@@ -332,6 +341,7 @@ int main()
         glBufferData(GL_UNIFORM_BUFFER, max_dipoles * sizeof(MagneticDipoleGL), nullptr, GL_STATIC_DRAW);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, dipoles_gl.size() * sizeof(MagneticDipoleGL), dipoles_gl.data());
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glBindVertexArray(0); // Unbind VAO for safety
         checkGLError("UBO update");
 
         // Render dipole visualizers (opaque)
@@ -355,6 +365,7 @@ int main()
             field_line_shader.set_mat4("view", main_camera.getViewMatrix());
             field_line_shader.set_mat4("projection", main_camera.getProjectionMatrix());
             field_line_shader.set_mat4("model", glm::mat4(1.0f));
+            field_line_shader.set_int("use_color", use_field_line_color ? 1 : 0);
             glBindVertexArray(field_line_VAO);
             glDrawElements(GL_LINES, field_line_indices.size(), GL_UNSIGNED_INT, 0);
             glBindVertexArray(0);
@@ -392,9 +403,10 @@ int main()
         ImGui::Separator();
         ImGui::Text("Field Line Settings");
         ImGui::Checkbox("Render Field Lines", &render_field_lines);
+        ImGui::Checkbox("Use Colored Field Lines", &use_field_line_color);
         ImGui::Checkbox("Use Adaptive Step Size", &trace_use_adaptive_step);
         ImGui::SliderFloat("Step Size", &trace_step_size, 0.001f, 0.1f, "%.3f");
-        ImGui::SliderInt("Max Steps", &trace_max_steps, 100, 2000);
+        ImGui::InputInt("Max Steps", &trace_max_steps, 100, 1000);
         ImGui::SliderFloat("Adaptive Min Step", &trace_adaptive_min_step, 0.0001f, 0.01f, "%.4f");
         ImGui::SliderFloat("Adaptive Max Step", &trace_adaptive_max_step, 0.01f, 0.1f, "%.3f");
         ImGui::SliderFloat("Adaptive Field Ref", &trace_adaptive_field_ref, 0.01f, 1.0f, "%.2f");
@@ -445,7 +457,7 @@ int main()
             }
 
             float moment = dipoles[i].getMoment();
-            if (ImGui::InputFloat("Moment", &moment)) {
+            if (ImGui::InputFloat("Moment", &moment, 0.25, 1.0)) {
                 dipoles[i].setMoment(moment);
                 field_lines_dirty = true;
             }
@@ -527,7 +539,7 @@ int main()
 /* Window resize callback function */
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
-    screen_changed = width != screen_width || height != screen_height;
+    screen_changed = true;
     screen_width = width;
     screen_height = height;
     glViewport(0, 0, width, height);
@@ -670,10 +682,10 @@ void updateCuboidDimensions(Cuboid& cuboid, FieldPlane& field_plane, float cuboi
     field_plane.updateDimensions(cuboid_width, cuboid_height, cuboid_depth);
 
     // Update field VBO and EBO
-    glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
+    /*glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(field_plane.vertices), field_plane.vertices, GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, field_EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(field_plane.indices), field_plane.indices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(field_plane.indices), field_plane.indices, GL_STATIC_DRAW);*/
 
     // Update cuboid edges VBO and EBO
     glBindBuffer(GL_ARRAY_BUFFER, cuboid_VBO);

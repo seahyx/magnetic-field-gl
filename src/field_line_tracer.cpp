@@ -1,5 +1,8 @@
 #include "field_line_tracer.h"
 #include <algorithm>
+#include <thread>
+#include <mutex>
+#include <vector>
 
 FieldLineTracer::FieldLineTracer(const std::vector<BaseMagnet*>& magnets, float bounds_width, float bounds_height, float bounds_depth,
     float step_size, int max_steps, float adaptive_min_step, float adaptive_max_step,
@@ -104,26 +107,72 @@ void FieldLineTracer::traceFieldLineFromPoint(const glm::vec3& startPos, TraceDi
 
 std::vector<FieldLine> FieldLineTracer::traceFieldLines() {
     std::vector<FieldLine> fieldLines;
+    std::mutex fieldLinesMutex;
 
+    // Collect all start points
+    struct StartPointInfo {
+        glm::vec3 position;
+        TraceDirection direction;
+    };
+    std::vector<StartPointInfo> allStartPoints;
     for (const auto* magnet : mMagnets) {
         const auto& startPoints = magnet->getTraceStartPoints();
         for (const auto& startPoint : startPoints) {
-            FieldLine line;
-            // Trace backward if specified
-            if (startPoint.direction == TraceDirection::Backward || startPoint.direction == TraceDirection::Both) {
-                traceFieldLineFromPoint(startPoint.position, TraceDirection::Backward, line);
-            }
-            // Add the starting point
-            FieldLinePoint start;
-            start.position = startPoint.position;
-            start.field = calculateTotalField(startPoint.position);
-            line.points.push_back(start);
-            // Trace forward if specified
-            if (startPoint.direction == TraceDirection::Forward || startPoint.direction == TraceDirection::Both) {
-                traceFieldLineFromPoint(startPoint.position, TraceDirection::Forward, line);
-            }
-            fieldLines.push_back(line);
+            allStartPoints.push_back({ startPoint.position, startPoint.direction });
         }
+    }
+
+    if (allStartPoints.empty()) {
+        return fieldLines;
+    }
+
+    // Determine number of threads (minimum of hardware concurrency and number of start points)
+    unsigned int numThreads = std::min(std::thread::hardware_concurrency(), (unsigned int)allStartPoints.size());
+    numThreads = std::max(1u, numThreads); // Ensure at least one thread
+    std::vector<std::thread> threads;
+    std::vector<std::vector<FieldLine>> threadResults(numThreads);
+
+    // Divide start points among threads
+    size_t pointsPerThread = (allStartPoints.size() + numThreads - 1) / numThreads;
+    for (unsigned int i = 0; i < numThreads; ++i) {
+        size_t startIdx = i * pointsPerThread;
+        size_t endIdx = std::min(startIdx + pointsPerThread, allStartPoints.size());
+
+        if (startIdx < allStartPoints.size()) {
+            threads.emplace_back([this, startIdx, endIdx, &allStartPoints, &threadResults, i, &fieldLinesMutex]() {
+                std::vector<FieldLine>& localLines = threadResults[i];
+                for (size_t j = startIdx; j < endIdx; ++j) {
+                    const auto& startPoint = allStartPoints[j];
+                    FieldLine line;
+                    // Trace backward if specified
+                    if (startPoint.direction == TraceDirection::Backward || startPoint.direction == TraceDirection::Both) {
+                        traceFieldLineFromPoint(startPoint.position, TraceDirection::Backward, line);
+                    }
+                    // Add the starting point
+                    FieldLinePoint start;
+                    start.position = startPoint.position;
+                    start.field = calculateTotalField(startPoint.position);
+                    line.points.push_back(start);
+                    // Trace forward if specified
+                    if (startPoint.direction == TraceDirection::Forward || startPoint.direction == TraceDirection::Both) {
+                        traceFieldLineFromPoint(startPoint.position, TraceDirection::Forward, line);
+                    }
+                    if (!line.points.empty()) {
+                        localLines.push_back(std::move(line));
+                    }
+                }
+                });
+        }
+    }
+
+    // Wait for all threads to complete
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    // Merge results from all threads
+    for (const auto& localLines : threadResults) {
+        fieldLines.insert(fieldLines.end(), localLines.begin(), localLines.end());
     }
 
     return fieldLines;

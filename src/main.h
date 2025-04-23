@@ -21,6 +21,7 @@
 #include <glm/gtx/intersect.hpp>
 
 #include "shader.h"
+#include "shaders.h"
 #include "dipole.h"
 #include "camera.h"
 #include "cuboid.h"
