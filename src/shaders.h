@@ -24,6 +24,7 @@ out vec4 frag_color;
 uniform float pixels_per_meter;
 uniform vec2 resolution;
 uniform float plane_opacity;
+uniform float sensitivity_scaled;
 
 // Magnetic dipole struct
 struct MagneticDipole {
@@ -124,7 +125,7 @@ void main() {
 
     // Map field strength to color
     float field_str_len = length(field_str);
-    float normalized_field = min(field_str_len * 0.000001, 1.0);
+    float normalized_field = min(field_str_len * 0.000001 * sensitivity_scaled, 1.0);
     vec3 col = hsl2rgb((1.0 - normalized_field) * (300.0 / 360.0), 1.0, min(normalized_field * 2.0, 0.5));
     frag_color = vec4(col, plane_opacity);
 }

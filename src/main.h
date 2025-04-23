@@ -63,7 +63,8 @@ std::vector<DipoleVisualizer> dipole_visualizers; // Visualizers for magnetic di
 
 // Field plane settings
 float field_plane_z = 0.0f;            // Z-position in [-1, 1]
-float field_plane_opacity = 1.0f;      // Opacity in [0, 1]
+float field_plane_opacity = 0.5f;      // Opacity in [0, 1]
+float field_plane_sensitivity = 1.0f;  // Sensitivity, to be multiplied to a power of 10
 
 // Enum for dipole dragging modes
 enum class DragMode { None, Move, Rotate };
@@ -96,7 +97,6 @@ struct MagneticDipoleGL {
     float padding1;      // 4 bytes padding to 16 bytes
     glm::vec3 direction; // 12 bytes
     float moment;        // 4 bytes supposed to be padding but this works for some reason idk why don't fkin ask
-    float padding2[3];   // 12 bytes to align to 16 bytes for array
 };
 
 

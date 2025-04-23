@@ -227,6 +227,7 @@ int main()
             last_field_plane_z = field_plane_z;
         }
 
+
         // Field plane disappearing fix
         // Fixes whatever the shit that sometimes breaks when you move a dipole like wtf even
         glBindBuffer(GL_ARRAY_BUFFER, field_VBO);
@@ -379,6 +380,7 @@ int main()
         field_shader.set_float("pixels_per_meter", PIXELS_PER_METER);
         field_shader.set_vec2("resolution", glm::vec2(screen_width, screen_height));
         field_shader.set_float("plane_opacity", field_plane_opacity);
+        field_shader.set_float("sensitivity_scaled", powf(10, field_plane_sensitivity - 1));
         glDepthMask(GL_FALSE);
         glBindVertexArray(field_VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -399,6 +401,7 @@ int main()
         ImGui::Text("Field Plane Settings");
         ImGui::SliderFloat("Z Position", &field_plane_z, -1.0f, 1.0f, "%.2f");
         ImGui::SliderFloat("Opacity", &field_plane_opacity, 0.0f, 1.0f, "%.2f");
+        ImGui::SliderFloat("Sensitivity", &field_plane_sensitivity, -5.0f, 5.0f, "%.2f");
 
         ImGui::Separator();
         ImGui::Text("Field Line Settings");
