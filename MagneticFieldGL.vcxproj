@@ -191,6 +191,9 @@
     <ClInclude Include="src\shaders.h" />
     <ClInclude Include="src\transform.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="application.rc" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
