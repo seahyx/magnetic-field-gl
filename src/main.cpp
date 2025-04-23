@@ -500,6 +500,14 @@ int main()
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
+    dipoles.clear();
+    dipole_visualizers.clear();
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
     glDeleteVertexArrays(1, &field_VAO);
     glDeleteBuffers(1, &field_VBO);
     glDeleteBuffers(1, &field_EBO);
