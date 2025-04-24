@@ -50,6 +50,16 @@ int main()
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     ImGui::StyleColorsDark();
+
+    // Apply initial UI scaling
+    float base_font_size = 18.0f; // Base font size
+    io.Fonts->AddFontDefault(); // Use default font (or load a custom font with: io.Fonts->AddFontFromFileTTF("path/to/font.ttf", base_font_size * ui_scale))
+    io.FontGlobalScale = ui_scale; // Apply UI scale to font
+    ImGuiStyle& style = ImGui::GetStyle();
+    style = ImGuiStyle(); // Reset to default
+    ImGui::StyleColorsDark();
+    style.ScaleAllSizes(ui_scale); // Apply UI scale to style
+
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -186,6 +196,9 @@ int main()
     last_time = glfwGetTime();
     updateDeltaTime();
 
+    // Track last UI scale to detect changes
+    static float last_ui_scale = ui_scale;
+
     // Start render loop
     while (!glfwWindowShouldClose(window))
     {
@@ -193,6 +206,25 @@ int main()
         processInput(window, selected_dipole_index, drag_mode, drag_start_mouse_pos, drag_start_position, drag_start_rotation);
         countFPS();
         updateDeltaTime();
+
+        // Check if UI scale changed
+        if (ui_scale != last_ui_scale) {
+            // Update font scaling
+            io.Fonts->Clear();
+            io.Fonts->AddFontDefault(); // Or load custom font: io.Fonts->AddFontFromFileTTF("path/to/font.ttf", base_font_size * ui_scale)
+            io.FontGlobalScale = ui_scale;
+
+            // Update style scaling
+            style = ImGuiStyle(); // Reset to default
+            ImGui::StyleColorsDark();
+            style.ScaleAllSizes(ui_scale);
+
+            // Rebuild font atlas
+            ImGui_ImplOpenGL3_DestroyFontsTexture();
+            ImGui_ImplOpenGL3_CreateFontsTexture();
+
+            last_ui_scale = ui_scale;
+        }
 
         // Check if perspective mode toggled
         if (is_perspective != last_is_perspective)
@@ -318,8 +350,8 @@ int main()
                 drag_start_mouse_pos = current_mouse_pos;
             }
         }
-        // Move the camera
-        else if (drag_mode == DragMode::CameraDrag && is_dragging && !ImGui::GetIO().WantCaptureMouse)
+        // Move the camera (only in perspective mode)
+        else if (is_perspective && drag_mode == DragMode::CameraDrag && is_dragging && !ImGui::GetIO().WantCaptureMouse)
         {
             double mouse_x, mouse_y;
             glfwGetCursorPos(window, &mouse_x, &mouse_y);
@@ -638,6 +670,15 @@ int main()
         }
 
         ImGui::Separator();
+        ImGui::Text("UI Settings");
+        // UI Scale slider with 0.25x increments
+        if (ImGui::SliderFloat("UI Scale", &ui_scale, 0.25f, 3.0f, "%.2fx")) {
+            // Round to nearest 0.25x
+            ui_scale = std::round(ui_scale * 4.0f) / 4.0f;
+            ui_scale = std::max(0.25f, std::min(3.0f, ui_scale)); // Clamp to [0.25, 3.0]
+        }
+
+        ImGui::Separator();
         ImGui::Text("Field Plane Settings");
         ImGui::SliderFloat("Z Position", &field_plane_z, -1.0f, 1.0f, "%.2f");
         ImGui::SliderFloat("Opacity", &field_plane_opacity, 0.0f, 1.0f, "%.2f");
@@ -903,13 +944,18 @@ void processInput(GLFWwindow* window, int& selected_dipole_index, DragMode& drag
             }
             else
             {
+                // Simplified orthographic raycast
                 float ortho_height = cuboid_height / 2.0f;
                 float ortho_width = ortho_height * aspect_ratio;
                 glm::vec3 right = main_camera.getRight();
                 glm::vec3 up = main_camera.getUp();
-                glm::vec3 center = main_camera.getWorldPosition() + main_camera.getForward() * 5.0f;
-                ray_origin = center + right * normalized_coords.x * ortho_width + up * normalized_coords.y * ortho_height;
-                ray_direction = -main_camera.getForward();
+                // Position ray origin in front of the cuboid
+                ray_origin = glm::vec3(
+                    normalized_coords.x * ortho_width,
+                    normalized_coords.y * ortho_height,
+                    cuboid_depth // Start ray at the front of the cuboid
+                );
+                ray_direction = glm::vec3(0.0f, 0.0f, -1.0f); // Ray travels along negative Z-axis
             }
 
             selected_dipole_index = -1;

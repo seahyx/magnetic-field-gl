@@ -57,6 +57,9 @@ bool screen_changed{ false };          // Flag indicating if window size changed
 float cuboid_height{ 0.0f };           // Height of the cuboid, adjusted by aspect ratio
 float aspect_ratio{ 0.0f };            // Window aspect ratio (width / height)
 
+// UI scaling
+float ui_scale{ 1.0f };                // User-controlled UI scale factor (default 1.0x)
+
 // Camera settings
 constexpr float nearPlane = 0.1f;      // Near clipping plane
 constexpr float farPlane = 50.0f;      // Far clipping plane
