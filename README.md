@@ -8,7 +8,7 @@ Contributors: Seah Ying Xiang, Paul Ong, Loy Pek Yong
 
 This OpenGL-based application visualizes magnetic fields in real-time from user-manipulated dipoles in a 3D environment. Built with GLFW, GLM, ImGui, and custom shaders, it offers real-time interaction, field line tracing, and other nifty features.
 
-You can download and run it yourself here: [[Latest Release](https://github.com/seahyx/magnetic-field-gl/releases/latest/)]
+You can download and run it yourself here: [[Latest Release, Windows Only](https://github.com/seahyx/magnetic-field-gl/releases/latest/)]
 
 ## Setup and Build Instructions (Windows with Visual Studio)
 
